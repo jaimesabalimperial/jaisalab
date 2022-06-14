@@ -3,15 +3,24 @@ Multi-period inventory management
 Hector Perez, Christian Hubbs, Owais Sarwar
 4/14/2020
 '''
-
+#gym/or-gym
 import gym
+from or_gym.utils import assign_env_config
+from gym.spaces import Box
+from gym import Env
+from or_gym.envs.supply_chain import InvManagementBacklogEnv, InvManagementLostSalesEnv
+
+#garage
+from akro import Space
+from garage.envs import GymEnv
+
+#miscellaneous
 import itertools
 import numpy as np
 from scipy.stats import *
-from or_gym.utils import assign_env_config
 from collections import deque
 
-class InvManagementMasterEnv(gym.Env):
+class InvManagementMasterEnv(Env):
     '''
     The supply chain environment is structured as follows:
     
@@ -101,10 +110,12 @@ class InvManagementMasterEnv(gym.Env):
             self.supply_capacity = np.array(list(self.c))
         except:
             self.supply_capacity = np.array([self.c])
+
         try:
             self.lead_time = np.array(list(self.L))
         except:
             self.lead_time = np.array([self.L])
+            
         self.discount = self.alpha
         self.user_D = np.array(list(self.user_D))
         self.num_stages = len(self.init_inv) + 1
@@ -160,16 +171,16 @@ class InvManagementMasterEnv(gym.Env):
         # self.action_space = gym.spaces.Tuple(tuple(
             # [gym.spaces.Box(0, i, shape=(1,)) for i in self.supply_capacity]))
         self.pipeline_length = (m-1)*(lt_max+1)
-        self.action_space = gym.spaces.Box(
-            low=np.zeros(m-1), high=self.supply_capacity, dtype=np.int16)
-        # observation space (Inventory position at each echelon, which is any integer value)
-        self.observation_space = gym.spaces.Box(
-            low=-np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods*10,
-            high=np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods, dtype=np.int32)
+    
+    @property
+    def action_space(self):
+        return Box(low=np.zeros(self.num_stages-1), high=self.supply_capacity, dtype=np.int16)
 
-        # self.observation_space = gym.spaces.Box(
-        #     low=-np.ones(m-1)*self.supply_capacity.max()*self.num_periods*10, 
-        #     high=self.supply_capacity*self.num_periods, dtype=np.int32)
+    @property
+    def observation_space(self):
+        # observation space (Inventory position at each echelon, which is any integer value)
+        return Box(low=-np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods*10,
+                   high=np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods, dtype=np.int32)
 
     def seed(self,seed=None):
         '''
