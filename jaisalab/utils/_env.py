@@ -28,15 +28,12 @@ def env_setup(env):
        under the garage framework.
     """
     if isinstance(env, InvManagementBacklogEnv):
-        num = 0
+        env_name = 'InvManagement-v0'
     elif isinstance(env, InvManagementLostSalesEnv):
-        num = 1
+        env_name = 'InvManagement-v1'
 
-    #register env with openai-gym
-    register(id=f'InvMng-v{num}', entry_point=env)
-
-    # test registration was successful
-    env = gym.make(f"InvMng-v{num}")
+    #wrap as per garage framework
+    env = gym.make(env_name)
     env = NpWrapper(env)
     env = normalize(GymEnv(env))
 

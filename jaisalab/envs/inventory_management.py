@@ -2,17 +2,20 @@
 Multi-period inventory management
 Hector Perez, Christian Hubbs, Owais Sarwar
 4/14/2020
+
+Inspired by https://github.com/hubbs5/or-gym and tweaked by Jaime Sabal
+to fit the garage framework for testing and evaluating RL algorithms.
 '''
 #gym/or-gym
 import gym
 from or_gym.utils import assign_env_config
 from gym.spaces import Box
 from gym import Env
-from or_gym.envs.supply_chain import InvManagementBacklogEnv, InvManagementLostSalesEnv
 
 #garage
 from akro import Space
 from garage.envs import GymEnv
+from garage import EnvSpec
 
 #miscellaneous
 import itertools
@@ -92,6 +95,7 @@ class InvManagementMasterEnv(Env):
         self.seed_int = 0
         self.user_D = np.zeros(self.periods)
         self._max_rewards = 2000
+        self._max_episode_length = 1000
         
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
@@ -165,15 +169,18 @@ class InvManagementMasterEnv(Env):
 
         # intialize
         self.reset()
-        
+        self.pipeline_length = (m-1)*(lt_max+1)
+
+        self._spec = EnvSpec(action_space=self.action_space,
+                        observation_space=self.observation_space,
+                        max_episode_length=self._max_episode_length)
+    
+    @property
+    def action_space(self):
         # action space (reorder quantities for each stage; list)
         # An action is defined for every stage (except last one)
         # self.action_space = gym.spaces.Tuple(tuple(
             # [gym.spaces.Box(0, i, shape=(1,)) for i in self.supply_capacity]))
-        self.pipeline_length = (m-1)*(lt_max+1)
-    
-    @property
-    def action_space(self):
         return Box(low=np.zeros(self.num_stages-1), high=self.supply_capacity, dtype=np.int16)
 
     @property
@@ -181,6 +188,11 @@ class InvManagementMasterEnv(Env):
         # observation space (Inventory position at each echelon, which is any integer value)
         return Box(low=-np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods*10,
                    high=np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods, dtype=np.int32)
+    
+    @property
+    def spec(self):
+        """garage.envs.env_spec.EnvSpec: The envionrment specification."""
+        return self._spec
 
     def seed(self,seed=None):
         '''

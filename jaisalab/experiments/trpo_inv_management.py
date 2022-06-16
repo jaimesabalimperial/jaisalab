@@ -29,7 +29,7 @@ from dowel import logger, StdOutput
 from garage import wrap_experiment
 from garage.envs import GymEnv
 from garage.experiment.deterministic import set_seed
-from garage.sampler import LocalSampler
+from garage.sampler import LocalSampler, WorkerFactory
 from garage.torch.algos import TRPO
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
@@ -37,7 +37,7 @@ from garage.trainer import Trainer
 
 
 @wrap_experiment
-def trpo_inv_management(ctxt=None, seed=1):
+def trpo_inv_mng_backlog(ctxt=None, seed=1):
     """Train TRPO with InvertedDoublePendulum-v2 environment.
 
     Args:
@@ -57,7 +57,8 @@ def trpo_inv_management(ctxt=None, seed=1):
     logger.add_output(StdOutput())
 
     set_seed(seed)
-    env = env_setup(InvManagementBacklogEnv) #set up environment
+    env = InvManagementBacklogEnv()
+    env = env_setup(env) #set up environment
 
     trainer = Trainer(ctxt)
 
@@ -71,9 +72,12 @@ def trpo_inv_management(ctxt=None, seed=1):
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
 
+    #need to specify a worker factory to create sampler
+    worker_factory = WorkerFactory(max_episode_length=1000)
+
     sampler = LocalSampler(agents=policy,
                            envs=env,
-                           max_episode_length=env.spec.max_episode_length)
+                           worker_factory=worker_factory)
 
     algo = TRPO(env_spec=env.spec,
                 policy=policy,
@@ -84,5 +88,3 @@ def trpo_inv_management(ctxt=None, seed=1):
 
     trainer.setup(algo, env)
     trainer.train(n_epochs=100, batch_size=1024)
-
-trpo_inv_management(seed=1)
