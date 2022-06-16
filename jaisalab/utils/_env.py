@@ -24,7 +24,9 @@ class NpWrapper(gym.ObservationWrapper):
         return obs
 
 def env_setup(env):
-
+    """Helper function for setting up an OpenAI Gym environment
+       under the garage framework.
+    """
     if isinstance(env, InvManagementBacklogEnv):
         num = 0
     elif isinstance(env, InvManagementLostSalesEnv):

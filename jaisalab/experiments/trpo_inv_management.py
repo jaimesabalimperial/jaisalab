@@ -1,7 +1,6 @@
 """TRPO on Inventory Management Environment
 Author - Jaime Sabal"""
-import os, sys
-sys.path.append("~/Desktop/ICL/thesis/thesis-software-archive/thesis/jaisalab")
+import os 
 
 #misc
 import gym
@@ -10,7 +9,7 @@ import numpy as np
 import random
 import torch
 
-#thesis
+#jaisalab
 from jaisalab.utils._env import env_setup
 
 #environment

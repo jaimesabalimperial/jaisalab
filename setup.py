@@ -1,14 +1,6 @@
 # setup.py
-from setuptools import setup, Extension, find_packages
+import setuptools 
 
-setup(name='thesis',
-      version='0.0.1',
-      # Specify packages (directories with __init__.py) to install.
-      # You could use find_packages(exclude=['modules']) as well
-      packages=['algos, experiments, envs'],
-      include_package_data=True,
-      )
-import setuptools
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -21,7 +13,7 @@ setuptools.setup(
     description="RL Lab for Jaime Sabal's 2022 MSc AI Individual Project",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/jaimesabalimperial/thesis",
+    url="https://github.com/jaimesabalimperial/jaisalab",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
