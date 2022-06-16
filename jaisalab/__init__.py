@@ -1,6 +1,4 @@
-
-#Expose all modules
-from .utils._env import *
-from .algos.cpo import *
-from .envs.inventory_management import *
-from .experiments.trpo_inv_management import *
+import os, sys
+sys.path.insert(0, os.path.abspath("/algos/cpo.py"))
+sys.path.insert(0, os.path.abspath("/envs(inventory_management.py"))
+sys.path.insert(0, os.path.abspath("/experiments/trpo_inv_management.py"))

@@ -1,6 +1,7 @@
 """TRPO on Inventory Management Environment
 Author - Jaime Sabal"""
-import os
+import os, sys
+sys.path.append("~/Desktop/ICL/thesis/thesis-software-archive/thesis/jaisalab")
 
 #misc
 import gym
@@ -10,7 +11,7 @@ import random
 import torch
 
 #thesis
-#from jaisalab.utils._env import env_setup
+from jaisalab.utils._env import env_setup
 
 #environment
 from or_gym.envs.supply_chain import InvManagementBacklogEnv, InvManagementLostSalesEnv
@@ -19,8 +20,7 @@ from gym.envs.registration import register
 
 #garage
 import garage
-from garage.envs import GymEnv
-from garage.envs import normalize
+from garage.envs import GymEnv, normalize
 from garage.tf.algos import TRPO
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction

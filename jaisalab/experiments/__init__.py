@@ -1,5 +1,2 @@
-# For relative imports to work in Python 3.6
 import os, sys
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-
-from .trpo_inv_management import *
+sys.path.insert(0, os.path.abspath("."))
