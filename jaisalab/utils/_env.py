@@ -27,13 +27,10 @@ def env_setup(env):
     """Helper function for setting up an OpenAI Gym environment
        under the garage framework.
     """
-    if isinstance(env, InvManagementBacklogEnv):
-        env_name = 'InvManagement-v0'
-    elif isinstance(env, InvManagementLostSalesEnv):
-        env_name = 'InvManagement-v1'
-
     #wrap as per garage framework
-    env = gym.make(env_name)
+    if isinstance(env, str):
+        env = gym.make(env)
+        
     env = NpWrapper(env)
     env = normalize(GymEnv(env))
 

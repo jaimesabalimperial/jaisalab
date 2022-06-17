@@ -9,16 +9,13 @@ to fit the garage framework for testing and evaluating RL algorithms.
 #gym/or-gym
 import gym
 from or_gym.utils import assign_env_config
-from gym.spaces import Box
 from gym import Env
 
 #garage
-from akro import Space
-from garage.envs import GymEnv
+import akro
 from garage import EnvSpec
 
 #miscellaneous
-import itertools
 import numpy as np
 from scipy.stats import *
 from collections import deque
@@ -52,7 +49,7 @@ class InvManagementMasterEnv(Env):
     5) Surpluss inventory is held at each stage at a holding cost.
         
     '''
-    def __init__(self, *args, **kwargs):
+    def __init__(self, max_episode_length=200, *args, **kwargs):
         '''
         periods = [positive integer] number of periods in simulation.
         I0 = [non-negative integer; dimension |Stages|-1] initial inventories for each stage.
@@ -95,7 +92,7 @@ class InvManagementMasterEnv(Env):
         self.seed_int = 0
         self.user_D = np.zeros(self.periods)
         self._max_rewards = 2000
-        self._max_episode_length = 1000
+        self._max_episode_length = max_episode_length
         
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
@@ -171,23 +168,32 @@ class InvManagementMasterEnv(Env):
         self.reset()
         self.pipeline_length = (m-1)*(lt_max+1)
 
+        self._action_space = akro.Box(low=np.zeros(self.num_stages-1), 
+                                      high=self.supply_capacity, 
+                                      dtype=np.int16)
+
+        self._observation_space = akro.Box(low=-np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods*10,
+                                           high=np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods, 
+                                           dtype=np.int32)
+
         self._spec = EnvSpec(action_space=self.action_space,
-                        observation_space=self.observation_space,
-                        max_episode_length=self._max_episode_length)
+                             observation_space=self.observation_space,
+                             max_episode_length=max_episode_length)
     
     @property
     def action_space(self):
+        """akro.Space: The action space specification."""
         # action space (reorder quantities for each stage; list)
         # An action is defined for every stage (except last one)
         # self.action_space = gym.spaces.Tuple(tuple(
             # [gym.spaces.Box(0, i, shape=(1,)) for i in self.supply_capacity]))
-        return Box(low=np.zeros(self.num_stages-1), high=self.supply_capacity, dtype=np.int16)
+        return self._action_space
 
     @property
     def observation_space(self):
+        """akro.Space: The observation space specification."""
         # observation space (Inventory position at each echelon, which is any integer value)
-        return Box(low=-np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods*10,
-                   high=np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods, dtype=np.int32)
+        return self._observation_space
     
     @property
     def spec(self):

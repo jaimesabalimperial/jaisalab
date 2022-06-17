@@ -58,7 +58,10 @@ def trpo_inv_mng_backlog(ctxt=None, seed=1):
 
     set_seed(seed)
     env = InvManagementBacklogEnv()
+    print(env.spec)
+
     env = env_setup(env) #set up environment
+    print(env.spec)
 
     trainer = Trainer(ctxt)
 
@@ -73,7 +76,7 @@ def trpo_inv_mng_backlog(ctxt=None, seed=1):
                                               output_nonlinearity=None)
 
     #need to specify a worker factory to create sampler
-    worker_factory = WorkerFactory(max_episode_length=1000)
+    worker_factory = WorkerFactory(max_episode_length=env.spec.max_episode_length)
 
     sampler = LocalSampler(agents=policy,
                            envs=env,
