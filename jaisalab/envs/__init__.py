@@ -1,2 +1,2 @@
-import os, sys
-sys.path.insert(0, os.path.abspath("."))
+#import all classes and functions
+from .inventory_management import InvManagementBacklogEnv, InvManagementMasterEnv, InvManagementLostSalesEnv

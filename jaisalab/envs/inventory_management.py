@@ -9,7 +9,6 @@ to fit the garage framework for testing and evaluating RL algorithms.
 #gym/or-gym
 import gym
 from or_gym.utils import assign_env_config
-from gym import Env
 
 #garage
 import akro
@@ -20,7 +19,7 @@ import numpy as np
 from scipy.stats import *
 from collections import deque
 
-class InvManagementMasterEnv(Env):
+class InvManagementMasterEnv(gym.Env):
     '''
     The supply chain environment is structured as follows:
     
@@ -49,7 +48,7 @@ class InvManagementMasterEnv(Env):
     5) Surpluss inventory is held at each stage at a holding cost.
         
     '''
-    def __init__(self, max_episode_length=200, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         '''
         periods = [positive integer] number of periods in simulation.
         I0 = [non-negative integer; dimension |Stages|-1] initial inventories for each stage.
@@ -92,7 +91,7 @@ class InvManagementMasterEnv(Env):
         self.seed_int = 0
         self.user_D = np.zeros(self.periods)
         self._max_rewards = 2000
-        self._max_episode_length = max_episode_length
+        self._max_episode_length = 200
         
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
@@ -178,7 +177,7 @@ class InvManagementMasterEnv(Env):
 
         self._spec = EnvSpec(action_space=self.action_space,
                              observation_space=self.observation_space,
-                             max_episode_length=max_episode_length)
+                             max_episode_length=self.max_episode_length)
     
     @property
     def action_space(self):
@@ -199,6 +198,11 @@ class InvManagementMasterEnv(Env):
     def spec(self):
         """garage.envs.env_spec.EnvSpec: The envionrment specification."""
         return self._spec
+
+    @property
+    def max_episode_length(self):
+        """Maximum episode length attribute."""
+        return self._max_episode_length
 
     def seed(self,seed=None):
         '''

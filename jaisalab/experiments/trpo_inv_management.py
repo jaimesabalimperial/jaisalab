@@ -11,9 +11,9 @@ import torch
 
 #jaisalab
 from jaisalab.utils._env import env_setup
+from jaisalab.envs.inventory_management import InvManagementBacklogEnv, InvManagementLostSalesEnv
 
 #environment
-from or_gym.envs.supply_chain import InvManagementBacklogEnv, InvManagementLostSalesEnv
 import gym # already imported before
 from gym.envs.registration import register
 
@@ -56,12 +56,10 @@ def trpo_inv_mng_backlog(ctxt=None, seed=1):
     # log to stdout
     logger.add_output(StdOutput())
 
+    #set seed and define environment
     set_seed(seed)
     env = InvManagementBacklogEnv()
-    print(env.spec)
-
     env = env_setup(env) #set up environment
-    print(env.spec)
 
     trainer = Trainer(ctxt)
 
@@ -76,7 +74,7 @@ def trpo_inv_mng_backlog(ctxt=None, seed=1):
                                               output_nonlinearity=None)
 
     #need to specify a worker factory to create sampler
-    worker_factory = WorkerFactory(max_episode_length=env.spec.max_episode_length)
+    worker_factory = WorkerFactory(max_episode_length=env.max_episode_length)
 
     sampler = LocalSampler(agents=policy,
                            envs=env,
