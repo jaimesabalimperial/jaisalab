@@ -1,2 +1,1 @@
-import os, sys
-sys.path.append(os.path.abspath("."))
+from cpo import CPOBase, CPO

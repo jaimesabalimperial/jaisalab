@@ -1,2 +1,2 @@
-import os, sys
-sys.path.insert(0, os.path.abspath("."))
+from trpo_backlog import trpo_inv_mng_backlog
+from cpo_backlog import *
