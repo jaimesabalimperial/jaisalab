@@ -11,7 +11,7 @@ from jaisalab.envs.inventory_management import InvManagementBacklogEnv
 
 #garage
 import garage
-from garage.tf.algos import TRPO
+from garage.torch.algos import TRPO
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
 from garage import Trainer

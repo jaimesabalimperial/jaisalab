@@ -1,1 +1,1 @@
-from conjugate_constraint_optimizer import *
+from .conjugate_constraint_optimizer import *

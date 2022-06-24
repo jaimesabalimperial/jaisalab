@@ -1,12 +1,18 @@
 """Constrained Policy Optimization using PyTorch."""
 import torch
+from dowel import tabular
 
 from garage.torch._functions import zero_optim_grads
 from garage.torch.algos import VPG
 from garage.torch.optimizers import OptimizerWrapper
+from garage.torch import filter_valids
+from garage.torch._functions import np_to_torch, zero_optim_grads
+from garage import log_performance
+from garage.np import discount_cumsum
 
 from jaisalab.optimizers import ConjugateConstraintOptimizer
 from jaisalab.utils import to_device
+from jaisalab.safety_constraints import InventoryConstraints
 
 from copy import deepcopy
 import numpy as np
@@ -85,7 +91,7 @@ class CPO(VPG):
                 max_optimization_epochs=10,
                 minibatch_size=64)
         if safety_constraint is None:
-            self.safety_constraint = None
+            self.safety_constraint = InventoryConstraints()
         
         self._device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.grad_norm = grad_norm
@@ -124,9 +130,10 @@ class CPO(VPG):
                 
         constraint_value = constraint_value/traj_num
         constraint_value = to_device(self._device, constraint_value)
+
         return constraint_value
 
-    def _compute_objective(self, advantages, obs, actions):
+    def _compute_objective(self, advantages, obs, actions, rewards):
         r"""Compute objective value.
 
         Args:
@@ -154,7 +161,7 @@ class CPO(VPG):
         return surrogate
     
 
-    def _compute_cost_loss_with_adv(self, obs, actions, rewards, cost_advantages):
+    def _compute_cost_loss_with_adv(self, obs, actions, costs, cost_advantages):
         r"""Compute mean value of loss.
 
         --> Only difference with _compute_loss_with_adv() method is that the cost 
@@ -175,7 +182,7 @@ class CPO(VPG):
             torch.Tensor: Calculated negative mean scalar value of objective.
 
         """
-        objectives = self._compute_objective(cost_advantages, obs, actions, rewards)
+        objectives = self._compute_objective(cost_advantages, obs, actions, costs)
 
         if self._entropy_regularzied:
             policy_entropies = self._compute_policy_entropy(obs)
@@ -199,6 +206,100 @@ class CPO(VPG):
         cost_loss_grad = torch.cat([grad.view(-1) for grad in cost_grads]).detach() #g 
         cost_loss_grad = cost_loss_grad/torch.norm(cost_loss_grad) 
         return cost_loss, cost_loss_grad
+
+    def _train_once(self, itr, eps):
+        """Train the algorithm once.
+
+        Args:
+            itr (int): Iteration number.
+            eps (EpisodeBatch): A batch of collected paths.
+
+        Returns:
+            numpy.float64: Calculated mean value of undiscounted returns.
+
+        """
+        obs = np_to_torch(eps.padded_observations)
+        rewards = np_to_torch(eps.padded_rewards)
+        returns = np_to_torch(np.stack([discount_cumsum(reward, self.discount)
+                              for reward in eps.padded_rewards]))
+        valids = eps.lengths
+
+        with torch.no_grad():
+            baselines = self._value_function(obs)
+
+        if self._maximum_entropy:
+            policy_entropies = self._compute_policy_entropy(obs)
+            rewards += self._policy_ent_coeff * policy_entropies
+
+        obs_flat = np_to_torch(eps.observations)
+        actions_flat = np_to_torch(eps.actions)
+        rewards_flat = np_to_torch(eps.rewards)
+        returns_flat = torch.cat(filter_valids(returns, valids))
+        costs_flat = np_to_torch(self.safety_constraint.evaluate(eps))
+        cost_advs_flat = None
+        
+        advs_flat = self._compute_advantage(rewards, valids, baselines)
+
+        with torch.no_grad():
+            policy_loss_before = self._compute_loss_with_adv(
+                obs_flat, actions_flat, rewards_flat, advs_flat)
+            vf_loss_before = self._value_function.compute_loss(
+                obs_flat, returns_flat)
+            kl_before = self._compute_kl_constraint(obs)
+
+        self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
+                    advs_flat, costs_flat, cost_advs_flat)
+
+        with torch.no_grad():
+            policy_loss_after = self._compute_loss_with_adv(
+                obs_flat, actions_flat, rewards_flat, advs_flat)
+            vf_loss_after = self._value_function.compute_loss(
+                obs_flat, returns_flat)
+            kl_after = self._compute_kl_constraint(obs)
+            policy_entropy = self._compute_policy_entropy(obs)
+
+        with tabular.prefix(self.policy.name):
+            tabular.record('/LossBefore', policy_loss_before.item())
+            tabular.record('/LossAfter', policy_loss_after.item())
+            tabular.record('/dLoss',
+                           (policy_loss_before - policy_loss_after).item())
+            tabular.record('/KLBefore', kl_before.item())
+            tabular.record('/KL', kl_after.item())
+            tabular.record('/Entropy', policy_entropy.mean().item())
+
+        with tabular.prefix(self._value_function.name):
+            tabular.record('/LossBefore', vf_loss_before.item())
+            tabular.record('/LossAfter', vf_loss_after.item())
+            tabular.record('/dLoss',
+                           vf_loss_before.item() - vf_loss_after.item())
+
+        self._old_policy.load_state_dict(self.policy.state_dict())
+
+        undiscounted_returns = log_performance(itr,
+                                               eps,
+                                               discount=self._discount)
+        return np.mean(undiscounted_returns)
+    
+
+    def _train(self, obs, actions, rewards, returns, advs, costs, cost_advs):
+        r"""Train the policy and value function with minibatch.
+
+        Args:
+            obs (torch.Tensor): Observation from the environment with shape
+                :math:`(N, O*)`.
+            actions (torch.Tensor): Actions fed to the environment with shape
+                :math:`(N, A*)`.
+            rewards (torch.Tensor): Acquired rewards with shape :math:`(N, )`.
+            returns (torch.Tensor): Acquired returns with shape :math:`(N, )`.
+            advs (torch.Tensor): Advantage value at each step with shape
+                :math:`(N, )`.
+
+        """
+        for dataset in self._policy_optimizer.get_minibatch(
+                obs, actions, rewards, advs, costs, cost_advs):
+            self._train_policy(*dataset)
+        for dataset in self._vf_optimizer.get_minibatch(obs, returns):
+            self._train_value_function(*dataset)
 
     def _train_policy(self, obs, actions, rewards, advantages, cost_advantages):
         r"""Train the policy.

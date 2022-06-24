@@ -1,2 +1,2 @@
-from trpo_backlog import trpo_inv_mng_backlog
-from cpo_backlog import *
+from .trpo_backlog import *
+from .cpo_backlog import *

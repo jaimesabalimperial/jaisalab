@@ -1,1 +1,1 @@
-from cpo import CPOBase, CPO
+from .cpo import CPO
