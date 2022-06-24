@@ -17,7 +17,6 @@ from garage import EnvSpec
 #miscellaneous
 import numpy as np
 from scipy.stats import *
-from collections import deque
 
 class InvManagementMasterEnv(gym.Env):
     '''
@@ -230,7 +229,7 @@ class InvManagementMasterEnv(gym.Env):
         I0 = self.init_inv
         
         # simulation result lists
-        self.I=np.zeros([periods + 1, m - 1]) # inventory at the beginning of each period (last stage not included since iventory is infinite)
+        self.I=np.zeros([periods + 1, m - 1]) # inventory at the beginning of each period (last stage not included since inventory is infinite)
         self.T=np.zeros([periods + 1, m - 1]) # pipeline inventory at the beginning of each period (no pipeline inventory for last stage)
         self.R=np.zeros([periods, m - 1]) # replenishment order (last stage places no replenishment orders)
         self.D=np.zeros(periods) # demand at retailer
@@ -283,11 +282,12 @@ class InvManagementMasterEnv(gym.Env):
             IP = np.cumsum(self.I[n,:] + self.T[n,:])
         self.state = IP
     
-    def _STEP(self,action):
+    def _STEP(self, action):
         '''
         Take a step in time in the multiperiod inventory management problem.
         action = [integer; dimension |Stages|-1] number of units to request from suppliers (last stage makes no requests)
         '''
+        info = {}
         R = np.maximum(action, 0).astype(int)
 
         # get inventory at hand and pipeline inventory at beginning of the period
@@ -300,7 +300,7 @@ class InvManagementMasterEnv(gym.Env):
         # get production capacities
         c = self.supply_capacity # capacity
         self.action_log[n] = R.copy()
-        
+
         # available inventory at the m+1 stage (note: last stage has unlimited supply)
         Im1 = np.append(I[1:], np.Inf) 
         
@@ -383,8 +383,13 @@ class InvManagementMasterEnv(gym.Env):
             done = True
         else:
             done = False
+        
+        #store env info
+        info["replenishment_quantity"] = Rcopy
+        info["inventory_constraint"] = Im1
+        info["capacity_constraint"] = c
             
-        return self.state, reward, done, {}
+        return self.state, reward, done, info
     
     def sample_action(self):
         '''

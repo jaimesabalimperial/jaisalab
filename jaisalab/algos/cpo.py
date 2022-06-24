@@ -62,6 +62,7 @@ class CPO(VPG):
                  sampler,
                  policy_optimizer=None,
                  vf_optimizer=None,
+                 safety_constraint=None,
                  num_train_per_epoch=1,
                  discount=0.99,
                  gae_lambda=0.98,
@@ -70,11 +71,12 @@ class CPO(VPG):
                  policy_ent_coeff=0.0,
                  use_softplus_entropy=False,
                  stop_entropy_gradient=False,
-                 entropy_method='no_entropy'):
+                 entropy_method='no_entropy', 
+                 grad_norm=False):
 
         if policy_optimizer is None:
             policy_optimizer = OptimizerWrapper(
-                (ConjugateConstraintOptimizer, dict(max_constraint_value=0.01)),
+                (ConjugateConstraintOptimizer, dict(max_kl=0.01)),
                 policy)
         if vf_optimizer is None:
             vf_optimizer = OptimizerWrapper(
@@ -82,8 +84,11 @@ class CPO(VPG):
                 value_function,
                 max_optimization_epochs=10,
                 minibatch_size=64)
+        if safety_constraint is None:
+            self.safety_constraint = None
         
         self._device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        self.grad_norm = grad_norm
 
         super().__init__(env_spec=env_spec,
                          policy=policy,
@@ -177,6 +182,23 @@ class CPO(VPG):
             objectives += self._policy_ent_coeff * policy_entropies
 
         return objectives.mean()
+    
+    def _get_loss_grad(self, obs, actions, rewards, advantages):
+        """"""
+        loss = self._compute_loss_with_adv(obs, actions, rewards, advantages)
+        grads = torch.autograd.grad(loss, self.policy.parameters())
+        loss_grad = torch.cat([grad.view(-1) for grad in grads]).detach() #g  
+        if self.grad_norm == True:
+            loss_grad = loss_grad/torch.norm(loss_grad)
+        return loss, loss_grad
+    
+    def _get_cost_loss_grad(self, obs, actions, rewards, cost_advantages):
+        """"""
+        cost_loss = self._compute_cost_loss_with_adv(obs, actions, rewards, cost_advantages)
+        cost_grads = torch.autograd.grad(cost_loss, self.policy.parameters())
+        cost_loss_grad = torch.cat([grad.view(-1) for grad in cost_grads]).detach() #g 
+        cost_loss_grad = cost_loss_grad/torch.norm(cost_loss_grad) 
+        return cost_loss, cost_loss_grad
 
     def _train_policy(self, obs, actions, rewards, advantages, cost_advantages):
         r"""Train the policy.
@@ -197,15 +219,21 @@ class CPO(VPG):
         """
         # pylint: disable=protected-access
         zero_optim_grads(self._policy_optimizer._optimizer)
-        loss = self._compute_loss_with_adv(obs, actions, rewards, advantages)
-        cost_loss = self._compute_cost_loss(self, cost_advantages, obs, actions)
-        loss.backward()
-        cost_loss.backward()
+        loss, loss_grad = self._get_loss_grad(obs, actions, rewards, advantages)
+        cost_loss, cost_loss_grad = self._get_cost_loss_grad(self, obs, actions, rewards, cost_advantages)
+        #loss.backward()
+        #cost_loss.backward()
+
+        constraint_value = self._compute_constraint_value(costs, masks)
+
         self._policy_optimizer.step(
             f_loss=lambda: self._compute_loss_with_adv(obs, actions, rewards,
                                                        advantages),
             f_cost=lambda: self._compute_cost_loss_with_adv(obs, actions, rewards,
                                                        cost_advantages),                                           
-            f_constraint=lambda: self._compute_kl_constraint(obs))
+            f_constraint=lambda: self._compute_kl_constraint(obs), 
+            loss_grad=loss_grad, 
+            cost_loss_grad=cost_loss_grad, 
+            )
 
-        return loss
+        return loss, cost_loss

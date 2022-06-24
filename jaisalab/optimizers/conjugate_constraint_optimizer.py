@@ -44,22 +44,88 @@ class ConjugateConstraintOptimizer(Optimizer):
 
     def __init__(self,
                  params,
-                 max_constraint_value,
+                 max_kl,
                  cg_iters=10,
                  max_backtracks=15,
                  backtrack_ratio=0.8,
                  hvp_reg_coeff=1e-5,
                  accept_violation=False,
-                 ):
+                 grad_norm=False):
         super().__init__(params, {})
-        self._max_constraint_value = max_constraint_value
+        self._max_kl = max_kl
         self._cg_iters = cg_iters
         self._max_backtracks = max_backtracks
         self._backtrack_ratio = backtrack_ratio
         self._hvp_reg_coeff = hvp_reg_coeff
         self._accept_violation = accept_violation
+        self._grad_norm = grad_norm
 
-    def step(self, f_loss, f_cost, f_constraint):  # pylint: disable=arguments-differ
+    def f_a_lambda(self, r, s, q, cc, lamda):
+        a = ((r**2)/s - q)/(2*lamda)
+        b = lamda*((cc**2)/s - self._max_kl)/2
+        c = - (r*cc)/s
+        return a+b+c
+    
+    def f_b_lambda(self, q, lamda):
+        a = -(q/lamda + lamda*self._max_kl)/2
+        return a   
+
+    def _get_optimal_step_dir(self, cost_loss_grad, loss_grad, step_dir, 
+                              cost_step_dir, constraint_value, d_k, f_Ax):
+        """Solve optimisation problem using duality if algorithm takes a 
+        step that produces a feasible iterate of the policy. However, sometimes, 
+        it may take a bad step that produces an infeasible iterate of the policy 
+        and when this happens an update that purely decreases the constraint value
+        is used to recover from this bad step."""
+
+        #define q, r, S
+        q = -loss_grad.dot(step_dir) #g^T.H^-1.g
+        r = loss_grad.dot(cost_step_dir) #g^T.H^-1.a
+        S = -cost_loss_grad.dot(cost_step_dir) #a^T.H^-1.a 
+
+        d_k = tensor(d_k).to(constraint_value.dtype).to(constraint_value.device)
+        cc = constraint_value - d_k # c would be positive for most part of the training
+
+        #find optimal lambda_a and lambda_b
+        A = torch.sqrt((q - (r**2)/S)/(self._max_kl - (cc**2)/S))
+        B = torch.sqrt(q/self._max_kl)
+        if cc>0:
+            opt_lam_a = torch.max(r/cc,A)
+            opt_lam_b = torch.max(0*A,torch.min(B,r/cc))
+        else: 
+            opt_lam_b = torch.max(r/cc,B)
+            opt_lam_a = torch.max(0*A,torch.min(A,r/cc))
+        
+        #find values of optimal lambdas 
+        opt_f_a = self.f_a_lambda(r, S, q, cc, opt_lam_a)
+        opt_f_b = self.f_b_lambda(q, opt_lam_b)
+        
+        if opt_f_a > opt_f_b:
+            opt_lambda = opt_lam_a
+        else:
+            opt_lambda = opt_lam_b
+            
+        #find optimal nu
+        nu = (opt_lambda*cc - r)/S
+        if nu>0:
+            opt_nu = nu 
+        else:
+            opt_nu = 0
+            
+        """ find optimal step direction """
+        # check for feasibility
+        if ((cc**2)/S - self._max_kl) > 0 and cc>0: #INFEASIBLE
+            #opt_stepdir = -torch.sqrt(2*max_kl/s).unsqueeze(-1)*Fvp(cost_stepdir)
+            opt_stepdir = torch.sqrt(2*self._max_kl/S)*f_Ax(cost_step_dir)
+        else: #FEASIBLE
+            #opt_grad = -(loss_grad + opt_nu*cost_loss_grad)/opt_lambda
+            opt_stepdir = (step_dir - opt_nu*cost_step_dir)/opt_lambda
+            #opt_stepdir = conjugate_gradients(Fvp, -opt_grad, 10)
+
+        return opt_stepdir
+
+    def step(self, f_loss, f_cost, f_constraint, loss_grad, cost_loss_grad,
+             constraint_value, d_k):  # pylint: disable=arguments-differ
         """Take an optimization step.
 
         Args:
@@ -69,28 +135,27 @@ class ConjugateConstraintOptimizer(Optimizer):
         """
         # Collect trainable parameters and gradients
         params = []
-        grads = []
         for group in self.param_groups:
             for p in group['params']:
                 if p.grad is not None:
                     params.append(p)
-                    grads.append(p.grad.reshape(-1))
-        flat_loss_grads = torch.cat(grads)
 
         # Build Hessian-vector-product function
         f_Ax = _build_hessian_vector_product(f_constraint, params,
                                              self._hvp_reg_coeff)
 
         # Compute step direction
-        step_dir = _conjugate_gradient(f_Ax, flat_loss_grads, self._cg_iters)
+        step_dir = _conjugate_gradient(f_Ax, -loss_grad, self._cg_iters)
+        cost_step_dir = _conjugate_gradient(f_Ax, -cost_loss_grad, self._cg_iters)
 
-        # Replace nan with 0.
-        step_dir[step_dir.ne(step_dir)] = 0.
+        # Calculate optimium step direction and replace nan with 0.
+        opt_stepdir = self._get_optimal_step_dir(self, cost_loss_grad, loss_grad, step_dir, 
+                                                 cost_step_dir, constraint_value, d_k, f_Ax)
+        opt_stepdir[opt_stepdir.ne(opt_stepdir)] = 0.
 
         # Compute step size
         step_size = np.sqrt(2.0 * self._max_constraint_value *
-                            (1. /
-                             (torch.dot(step_dir, f_Ax(step_dir)) + 1e-8)))
+                            (1. /(torch.dot(step_dir, f_Ax(step_dir)) + 1e-8)))
 
         if np.isnan(step_size):
             step_size = 1.
@@ -111,6 +176,7 @@ class ConjugateConstraintOptimizer(Optimizer):
             'backtrack_ratio': self._backtrack_ratio,
             'hvp_reg_coeff': self._hvp_reg_coeff,
             'accept_violation': self._accept_violation,
+            'grad_norm': self._grad_norm
         }
 
     @state.setter
@@ -124,6 +190,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         self._backtrack_ratio = state.get('backtrack_ratio', 0.8)
         self._hvp_reg_coeff = state.get('hvp_reg_coeff', 1e-5)
         self._accept_violation = state.get('accept_violation', False)
+        self._grad_norm = state.get('grad_norm', False)
 
     def __setstate__(self, state):
         """Restore the optimizer state.
