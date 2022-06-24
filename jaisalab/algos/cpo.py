@@ -3,19 +3,22 @@ import torch
 
 from garage.torch._functions import zero_optim_grads
 from garage.torch.algos import VPG
-from garage.torch.optimizers import (ConjugateGradientOptimizer,
-                                     OptimizerWrapper)
+from garage.torch.optimizers import OptimizerWrapper
+
+from jaisalab.optimizers import ConjugateConstraintOptimizer
 
 from copy import deepcopy
 import numpy as np
 
-class CPOBase(VPG):
-    def __init__(self, **kwargs):
-        self.params = deepcopy(kwargs)
-    def log(self):
-        pass
+"""
+1). Differences between CPO and TRPO: 
+    - Implement cost function to 
 
-class CPO(CPOBase):
+
+
+"""
+
+class CPO(VPG):
     """Constrained Policy Optimization (CPO).
 
     Args:
@@ -70,7 +73,7 @@ class CPO(CPOBase):
 
         if policy_optimizer is None:
             policy_optimizer = OptimizerWrapper(
-                (ConjugateGradientOptimizer, dict(max_constraint_value=0.01)),
+                (ConjugateConstraintOptimizer, dict(max_constraint_value=0.01)),
                 policy)
         if vf_optimizer is None:
             vf_optimizer = OptimizerWrapper(

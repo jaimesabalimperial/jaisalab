@@ -300,6 +300,7 @@ class InvManagementMasterEnv(gym.Env):
         # get production capacities
         c = self.supply_capacity # capacity
         self.action_log[n] = R.copy()
+        
         # available inventory at the m+1 stage (note: last stage has unlimited supply)
         Im1 = np.append(I[1:], np.Inf) 
         
@@ -307,6 +308,8 @@ class InvManagementMasterEnv(gym.Env):
         if n>=1: # add backlogged replenishment orders to current request
             R = R + self.B[n-1,1:]
         Rcopy = R.copy() # copy original replenishment quantity
+
+        #enforce capacity and inventory constraints
         R[R>=c] = c[R>=c] # enforce capacity constraint
         R[R>=Im1] = Im1[R>=Im1] # enforce available inventory constraint
         self.R[n,:] = R # store R[n]

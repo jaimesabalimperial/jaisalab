@@ -6,7 +6,7 @@ import os
 import torch
 
 #jaisalab
-from jaisalab.utils._env import env_setup
+from jaisalab.utils.env import env_setup
 from jaisalab.envs.inventory_management import InvManagementBacklogEnv
 
 #garage
