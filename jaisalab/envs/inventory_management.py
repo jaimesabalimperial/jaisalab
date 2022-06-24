@@ -385,6 +385,8 @@ class InvManagementMasterEnv(gym.Env):
             done = False
         
         #store env info
+        mask = 0 if done else 1
+        info["mask"] = mask
         info["replenishment_quantity"] = Rcopy
         info["inventory_constraint"] = Im1
         info["capacity_constraint"] = c

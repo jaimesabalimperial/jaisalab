@@ -1,4 +1,4 @@
-"""Constrained Policy Optimization using PyTorch."""
+"""Constrained Policy Optimization using PyTorch with the garage framework."""
 import torch
 from dowel import tabular
 
@@ -17,13 +17,6 @@ from jaisalab.safety_constraints import InventoryConstraints
 from copy import deepcopy
 import numpy as np
 
-"""
-1). Differences between CPO and TRPO: 
-    - Implement cost function to 
-
-
-
-"""
 
 class CPO(VPG):
     """Constrained Policy Optimization (CPO).
@@ -92,6 +85,8 @@ class CPO(VPG):
                 minibatch_size=64)
         if safety_constraint is None:
             self.safety_constraint = InventoryConstraints()
+        else: 
+            self.safety_constraint = safety_constraint
         
         self._device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.grad_norm = grad_norm
@@ -223,6 +218,7 @@ class CPO(VPG):
         returns = np_to_torch(np.stack([discount_cumsum(reward, self.discount)
                               for reward in eps.padded_rewards]))
         valids = eps.lengths
+        masks = np_to_torch(eps.env_infos["mask"])
 
         with torch.no_grad():
             baselines = self._value_function(obs)
@@ -248,7 +244,7 @@ class CPO(VPG):
             kl_before = self._compute_kl_constraint(obs)
 
         self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
-                    advs_flat, costs_flat, cost_advs_flat)
+                    advs_flat, costs_flat, cost_advs_flat, masks)
 
         with torch.no_grad():
             policy_loss_after = self._compute_loss_with_adv(
@@ -281,7 +277,7 @@ class CPO(VPG):
         return np.mean(undiscounted_returns)
     
 
-    def _train(self, obs, actions, rewards, returns, advs, costs, cost_advs):
+    def _train(self, obs, actions, rewards, returns, advs, costs, cost_advs, masks):
         r"""Train the policy and value function with minibatch.
 
         Args:
@@ -296,12 +292,13 @@ class CPO(VPG):
 
         """
         for dataset in self._policy_optimizer.get_minibatch(
-                obs, actions, rewards, advs, costs, cost_advs):
+                obs, actions, rewards, advs, costs, cost_advs, masks):
             self._train_policy(*dataset)
         for dataset in self._vf_optimizer.get_minibatch(obs, returns):
             self._train_value_function(*dataset)
 
-    def _train_policy(self, obs, actions, rewards, advantages, cost_advantages):
+    def _train_policy(self, obs, actions, rewards, advantages, 
+                      costs, cost_advantages, masks):
         r"""Train the policy.
 
         Args:
@@ -335,6 +332,7 @@ class CPO(VPG):
             f_constraint=lambda: self._compute_kl_constraint(obs), 
             loss_grad=loss_grad, 
             cost_loss_grad=cost_loss_grad, 
-            )
+            constraint_value=constraint_value, 
+            d_k=0)
 
         return loss, cost_loss

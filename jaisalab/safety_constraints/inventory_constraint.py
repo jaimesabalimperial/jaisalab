@@ -10,7 +10,17 @@ class InventoryConstraints(BaseConstraint):
         stage. The costs returned will thus have shape (N*T, |Stages|-1]) i.e the number of periods per episode
         times the number of episodes in the first dimension and the shape of the pipeline as the second.
         """
-        print(paths)
-        R = paths["env_infos"]["replenishment_quantity"]
-        Im1 =  paths["env_infos"]["inventory_constraint"]
-        c =  paths["env_infos"]["capacity_constraint"]
+        R = paths.env_infos["replenishment_quantity"]
+        Im1 = paths.env_infos["inventory_constraint"]
+        c =  paths.env_infos["capacity_constraint"]
+
+        print("these are the replenishment quantities including backlogged sales:")
+        print(R)
+
+        print("These are the inventory constraints:")
+        print(Im1)
+
+        print("These are the supply constraints:")
+        print(c)
+
+
