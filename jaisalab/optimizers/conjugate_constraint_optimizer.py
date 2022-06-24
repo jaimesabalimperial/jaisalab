@@ -59,7 +59,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         self._hvp_reg_coeff = hvp_reg_coeff
         self._accept_violation = accept_violation
 
-    def step(self, f_loss, f_constraint):  # pylint: disable=arguments-differ
+    def step(self, f_loss, f_cost, f_constraint):  # pylint: disable=arguments-differ
         """Take an optimization step.
 
         Args:
@@ -99,7 +99,7 @@ class ConjugateConstraintOptimizer(Optimizer):
 
         # Update parameters using backtracking line search
         self._backtracking_line_search(params, descent_step, f_loss,
-                                       f_constraint)
+                                       f_cost, f_constraint)
 
     @property
     def state(self):
@@ -142,10 +142,11 @@ class ConjugateConstraintOptimizer(Optimizer):
         self.param_groups = state['param_groups']
 
     def _backtracking_line_search(self, params, descent_step, f_loss,
-                                  f_constraint):
+                                  f_cost, f_constraint):
         prev_params = [p.clone() for p in params]
         ratio_list = self._backtrack_ratio**np.arange(self._max_backtracks)
         loss_before = f_loss()
+        cost_loss_before = f_cost()
 
         param_shapes = [p.shape or torch.Size([1]) for p in params]
         descent_step = unflatten_tensors(descent_step, param_shapes)
@@ -159,16 +160,24 @@ class ConjugateConstraintOptimizer(Optimizer):
                 param.data = new_param.data
 
             loss = f_loss()
+            cost_loss = f_cost()
             constraint_val = f_constraint()
-            if (loss < loss_before
-                    and constraint_val <= self._max_constraint_value):
+            if (loss < loss_before and cost_loss < cost_loss_before
+                and constraint_val <= self._max_constraint_value):
                 break
 
         if ((torch.isnan(loss) or torch.isnan(constraint_val)
              or loss >= loss_before
              or constraint_val >= self._max_constraint_value)
-                and not self._accept_violation):
+             or torch.isnan(cost_loss)
+             or cost_loss >= cost_loss_before
+             and not self._accept_violation):
             logger.log('Line search condition violated. Rejecting the step!')
+
+            if torch.isnan(cost_loss):
+                logger.log('Violated because cost loss is NaN')      
+            if cost_loss >= cost_loss_before:
+                logger.log('Violated because cost loss not improving')                  
             if torch.isnan(loss):
                 logger.log('Violated because loss is NaN')
             if torch.isnan(constraint_val):
