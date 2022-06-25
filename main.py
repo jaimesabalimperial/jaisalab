@@ -9,10 +9,11 @@ def test_cpo_backlog():
     cpo_inv_mng_backlog(seed=1)
 
 def plot_experiment():
-    fdir = 'cpo_inv_mng_backlog_34'
+    fdir = 'cpo_inv_mng_backlog'
     plotter = Plotter(fdir = fdir)
     plotter.plot_returns()
-    
+    plotter.plot_constraints()
+
 if __name__ == '__main__':
     #test_cpo_backlog()
     plot_experiment()

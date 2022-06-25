@@ -157,8 +157,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         opt_stepdir[opt_stepdir.ne(opt_stepdir)] = 0.
 
         # Compute step size
-        step_size = np.sqrt(2.0 * self._max_constraint_value *
-                            (1. /(torch.dot(opt_stepdir, f_Ax(opt_stepdir)) + 1e-8)))
+        step_size = np.sqrt(2.0 * self._max_kl * (1. /(torch.dot(opt_stepdir, f_Ax(opt_stepdir)) + 1e-8)))
 
         if np.isnan(step_size):
             step_size = 1.
@@ -173,7 +172,7 @@ class ConjugateConstraintOptimizer(Optimizer):
     def state(self):
         """dict: The hyper-parameters of the optimizer."""
         return {
-            'max_constraint_value': self._max_constraint_value,
+            'max_kl': self._max_kl,
             'cg_iters': self._cg_iters,
             'max_backtracks': self._max_backtracks,
             'backtrack_ratio': self._backtrack_ratio,

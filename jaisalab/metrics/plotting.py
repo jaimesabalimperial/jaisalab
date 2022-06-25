@@ -81,5 +81,19 @@ class Plotter():
     def plot_entropy(self):
         pass
     def plot_constraints(self):
-        pass
+        constraint_val = self.data['GaussianMLPPolicy/ConstraintValAfter']
+        episodes = np.arange(0, len(constraint_val))
+
+        fig = plt.figure()
+        plt.grid()
+        plt.plot(episodes, constraint_val, color='b', label='Constraint Value')
+        plt.xlabel('Episode')
+        plt.ylabel('Constraint Value')
+        plt.legend(loc='best')
+        if self.savefig:
+            try: 
+                plt.savefig(f'plots/{self.fdir}_constraints')
+            except FileNotFoundError:
+                os.mkdir('plots/')
+                plt.savefig(f'plots/{self.fdir}_constraints')
     
