@@ -22,7 +22,6 @@ from dowel import logger, StdOutput
 from garage import wrap_experiment
 from garage.experiment.deterministic import set_seed
 from garage.sampler import LocalSampler, WorkerFactory
-from garage.torch.algos import TRPO
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
 

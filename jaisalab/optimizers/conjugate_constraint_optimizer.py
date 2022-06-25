@@ -46,8 +46,8 @@ class ConjugateConstraintOptimizer(Optimizer):
                  params,
                  max_kl,
                  cg_iters=10,
-                 max_backtracks=15,
-                 backtrack_ratio=0.8,
+                 max_backtracks=25,
+                 backtrack_ratio=0.1,
                  hvp_reg_coeff=1e-5,
                  accept_violation=False,
                  grad_norm=False):
@@ -141,8 +141,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         params = []
         for group in self.param_groups:
             for p in group['params']:
-                if p.grad is not None:
-                    params.append(p)
+                params.append(p)
 
         # Build Hessian-vector-product function
         f_Ax = _build_hessian_vector_product(f_constraint, params,
@@ -153,13 +152,13 @@ class ConjugateConstraintOptimizer(Optimizer):
         cost_step_dir = _conjugate_gradient(f_Ax, -cost_loss_grad, self._cg_iters)
 
         # Calculate optimium step direction and replace nan with 0.
-        opt_stepdir = self._get_optimal_step_dir(self, cost_loss_grad, loss_grad, step_dir, 
+        opt_stepdir = self._get_optimal_step_dir(cost_loss_grad, loss_grad, step_dir, 
                                                  cost_step_dir, constraint_value, d_k, f_Ax)
         opt_stepdir[opt_stepdir.ne(opt_stepdir)] = 0.
 
         # Compute step size
         step_size = np.sqrt(2.0 * self._max_constraint_value *
-                            (1. /(torch.dot(step_dir, f_Ax(step_dir)) + 1e-8)))
+                            (1. /(torch.dot(opt_stepdir, f_Ax(opt_stepdir)) + 1e-8)))
 
         if np.isnan(step_size):
             step_size = 1.
@@ -243,6 +242,7 @@ class ConjugateConstraintOptimizer(Optimizer):
              or torch.isnan(cost_loss)
              or cost_loss >= cost_loss_before
              and not self._accept_violation):
+
             logger.log('Line search condition violated. Rejecting the step!')
 
             if torch.isnan(cost_loss):
@@ -257,5 +257,8 @@ class ConjugateConstraintOptimizer(Optimizer):
                 logger.log('Violated because loss not improving')
             if constraint_val >= self._max_constraint_value:
                 logger.log('Violated because constraint is violated')
-            for prev, cur in zip(prev_params, params):
-                cur.data = prev.data
+
+            logger.log("Performing step without line search...")
+            for step, prev, cur in zip(descent_step, prev_params, params):
+                cur.data = prev.data + step
+
