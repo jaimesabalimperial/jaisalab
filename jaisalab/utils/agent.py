@@ -1,7 +1,5 @@
 import torch
 from jaisalab.utils.torch import to_device
-import numpy as np
-import pdb
 
 def estimate_advantages(rewards, masks, values, gamma, tau, device):
     rewards, masks, values = to_device(torch.device('cpu'), rewards, masks, values)
@@ -26,7 +24,6 @@ def estimate_advantages(rewards, masks, values, gamma, tau, device):
 
 def estimate_constraint_value(costs, masks, gamma, device):
     costs, masks = to_device(torch.device('cpu'), costs, masks)
-    tensor_type = type(costs)
     constraint_value = torch.tensor(0)
     
     j = 1
