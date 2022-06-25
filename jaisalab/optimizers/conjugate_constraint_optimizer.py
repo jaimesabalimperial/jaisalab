@@ -130,7 +130,11 @@ class ConjugateConstraintOptimizer(Optimizer):
 
         Args:
             f_loss (callable): Function to compute the loss.
+            f_cost (callable): Function to compute cost loss.
             f_constraint (callable): Function to compute the constraint value.
+            loss_grad: Gradient of objective loss. 
+            cost_loss_grad : Gradient of cost loss.
+            constraint_value : Value of constraint. 
 
         """
         # Collect trainable parameters and gradients

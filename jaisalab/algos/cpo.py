@@ -8,7 +8,7 @@ from garage.torch.optimizers import OptimizerWrapper
 from garage.torch import filter_valids
 from garage.torch._functions import np_to_torch, zero_optim_grads
 from garage import log_performance
-from garage.np import discount_cumsum
+from garage.np import discount_cumsum, pad_batch_array
 
 from jaisalab.optimizers import ConjugateConstraintOptimizer
 from jaisalab.utils import to_device
@@ -83,6 +83,7 @@ class CPO(VPG):
                 value_function,
                 max_optimization_epochs=10,
                 minibatch_size=64)
+                
         if safety_constraint is None:
             self.safety_constraint = InventoryConstraints()
         else: 
@@ -90,6 +91,7 @@ class CPO(VPG):
         
         self._device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.grad_norm = grad_norm
+        self.env_spec = env_spec
 
         super().__init__(env_spec=env_spec,
                          policy=policy,
@@ -194,9 +196,9 @@ class CPO(VPG):
             loss_grad = loss_grad/torch.norm(loss_grad)
         return loss, loss_grad
     
-    def _get_cost_loss_grad(self, obs, actions, rewards, cost_advantages):
+    def _get_cost_loss_grad(self, obs, actions, costs, cost_advantages):
         """"""
-        cost_loss = self._compute_cost_loss_with_adv(obs, actions, rewards, cost_advantages)
+        cost_loss = self._compute_cost_loss_with_adv(obs, actions, costs, cost_advantages)
         cost_grads = torch.autograd.grad(cost_loss, self.policy.parameters())
         cost_loss_grad = torch.cat([grad.view(-1) for grad in cost_grads]).detach() #g 
         cost_loss_grad = cost_loss_grad/torch.norm(cost_loss_grad) 
@@ -218,10 +220,17 @@ class CPO(VPG):
         returns = np_to_torch(np.stack([discount_cumsum(reward, self.discount)
                               for reward in eps.padded_rewards]))
         valids = eps.lengths
-        masks = np_to_torch(eps.env_infos["mask"])
 
         with torch.no_grad():
             baselines = self._value_function(obs)
+        
+        #cost-related things
+        masks = np_to_torch(eps.env_infos["mask"])
+        costs_flat = self.safety_constraint.evaluate(eps)
+        costs = np_to_torch(pad_batch_array(costs_flat, valids, self.env_spec.max_episode_length))
+        cost_advs_flat = self._compute_advantage(costs, valids, baselines)
+
+        costs_flat = np_to_torch(costs_flat) #convert to PyTorch tensor
 
         if self._maximum_entropy:
             policy_entropies = self._compute_policy_entropy(obs)
@@ -231,9 +240,7 @@ class CPO(VPG):
         actions_flat = np_to_torch(eps.actions)
         rewards_flat = np_to_torch(eps.rewards)
         returns_flat = torch.cat(filter_valids(returns, valids))
-        costs_flat = np_to_torch(self.safety_constraint.evaluate(eps))
-        cost_advs_flat = None
-        
+    
         advs_flat = self._compute_advantage(rewards, valids, baselines)
 
         with torch.no_grad():
@@ -242,6 +249,9 @@ class CPO(VPG):
             vf_loss_before = self._value_function.compute_loss(
                 obs_flat, returns_flat)
             kl_before = self._compute_kl_constraint(obs)
+            constraint_val_before = self._compute_constraint_value(costs_flat, masks)
+            print("CONSTRAINT VAL BEFORE")
+            print(constraint_val_before)
 
         self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
                     advs_flat, costs_flat, cost_advs_flat, masks)
@@ -253,6 +263,9 @@ class CPO(VPG):
                 obs_flat, returns_flat)
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
+            constraint_val_after = self._compute_constraint_value(costs_flat, masks)
+            print("CONSTRAINT VAL AFTER")
+            print(constraint_val_after)
 
         with tabular.prefix(self.policy.name):
             tabular.record('/LossBefore', policy_loss_before.item())
@@ -262,6 +275,8 @@ class CPO(VPG):
             tabular.record('/KLBefore', kl_before.item())
             tabular.record('/KL', kl_after.item())
             tabular.record('/Entropy', policy_entropy.mean().item())
+            tabular.record('/ConstraintValBefore', constraint_val_before.item())
+            tabular.record('/ConstraintValAfter', constraint_val_after.item())
 
         with tabular.prefix(self._value_function.name):
             tabular.record('/LossBefore', vf_loss_before.item())
@@ -318,7 +333,7 @@ class CPO(VPG):
         # pylint: disable=protected-access
         zero_optim_grads(self._policy_optimizer._optimizer)
         loss, loss_grad = self._get_loss_grad(obs, actions, rewards, advantages)
-        cost_loss, cost_loss_grad = self._get_cost_loss_grad(self, obs, actions, rewards, cost_advantages)
+        cost_loss, cost_loss_grad = self._get_cost_loss_grad(obs, actions, costs, cost_advantages)
         #loss.backward()
         #cost_loss.backward()
 
