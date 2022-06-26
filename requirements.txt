@@ -71,7 +71,6 @@ pybtex==0.24.0
 pybtex-docutils==1.0.2
 pybullet==3.2.5
 pycosat==0.6.3
-pycurl==7.44.1
 PyDispatcher==2.0.5
 pygame==2.1.2
 pyglet==1.5.0
