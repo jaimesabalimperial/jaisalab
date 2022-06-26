@@ -28,7 +28,6 @@ git+https://github.com/rlworkgroup/garage.git@master
 gitdb==4.0.9
 glfw==2.5.3
 gym==0.17.2
-h5py==2.10.0
 hyperopt==0.2.7
 inflection==0.5.1
 ipdb==0.13.9
