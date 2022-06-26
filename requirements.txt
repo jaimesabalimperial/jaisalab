@@ -41,7 +41,6 @@ line-profiler==3.5.1
 llvmlite==0.38.0
 Mako==1.2.0
 mccabe==0.6.1
-mkl-service==2.4.0
 monotonic==1.6
 mpmath==1.2.1
 mujoco==2.2.0
