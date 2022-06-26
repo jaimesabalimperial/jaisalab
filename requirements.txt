@@ -109,7 +109,7 @@ svgwrite==1.4.2
 swagger-spec-validator==2.7.4
 tabulate==0.8.9
 termcolor==1.1.0
-torch==1.11.0
+torch==1.7.1
 Tree==0.2.4
 virtualenv==20.14.1
 virtualenv-clone==0.5.7
