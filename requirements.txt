@@ -13,15 +13,6 @@ bravado-core==5.17.0
 brotlipy==0.7.0
 cached-property==1.5.2
 certifi==2022.5.18.1
-cfgv==3.3.1
-chainer==7.8.1
-cma==3.2.2
-commonmark==0.9.1
-conda==4.13.0
-constantly==15.1.0
-coverage==6.4.1
-cssselect==1.1.0
-cytoolz==0.11.0
 daal4py==2021.5.0
 datashape==0.5.4
 distlib==0.3.4
@@ -29,7 +20,6 @@ dm-control==1.0.3
 dm-env==1.5
 dm-tree==0.1.7
 dowel==0.0.4
-enum34==1.1.10
 flake8-docstrings==1.6.0
 flake8-import-order==0.18.1
 flake8-polyfill==1.0.2
