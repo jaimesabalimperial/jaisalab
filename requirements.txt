@@ -108,15 +108,6 @@ stevedore==3.5.0
 svgwrite==1.4.2
 swagger-spec-validator==2.7.4
 tabulate==0.8.9
-TBB==0.2
-tensorboard==2.9.0
-tensorboard-data-server==0.6.1
-tensorboard-plugin-wit==1.8.1
-tensorboardX==2.5.1
-tensorflow==2.9.1
-tensorflow-estimator==2.9.0
-tensorflow-io-gcs-filesystem==0.26.0
-tensorflow-probability==0.12.2
 termcolor==1.1.0
 torch==1.7.1
 torchvision==0.8.2
