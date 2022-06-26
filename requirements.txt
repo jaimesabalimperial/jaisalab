@@ -109,7 +109,6 @@ sphinxcontrib-bibtex==2.4.2
 stevedore==3.5.0
 svgwrite==1.4.2
 swagger-spec-validator==2.7.4
-tables==3.6.1
 tabulate==0.8.9
 TBB==0.2
 tensorboard==2.9.0
