@@ -80,4 +80,4 @@ def cpo_inv_mng_backlog(ctxt=None, seed=1):
                 center_adv=False)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=300, batch_size=1024)
+    trainer.train(n_epochs=500, batch_size=1024)

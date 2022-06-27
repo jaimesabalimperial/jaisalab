@@ -15,5 +15,5 @@ def plot_experiment():
 
 if __name__ == '__main__':
     #test_trpo_backlog()
-    #test_cpo_backlog()
+    test_cpo_backlog()
     plot_experiment()

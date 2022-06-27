@@ -258,7 +258,7 @@ class ConjugateConstraintOptimizer(Optimizer):
             if constraint_val >= self._max_constraint_value:
                 logger.log('Violated because constraint is violated')
 
-            logger.log("Performing step without line search...")
+            #revert to previous params
             for step, prev, cur in zip(descent_step, prev_params, params):
-                cur.data = prev.data + step
+                cur.data = prev.data 
 
