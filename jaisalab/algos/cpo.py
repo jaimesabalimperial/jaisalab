@@ -236,6 +236,11 @@ class CPO(VPG):
         costs = np_to_torch(pad_batch_array(costs_flat, valids, self.env_spec.max_episode_length))
         cost_advs_flat = self._compute_advantage(costs, valids, baselines)
 
+        #constraints
+        R = eps.env_infos["replenishment_quantity"]
+        Im1 = eps.env_infos["inventory_constraint"]
+        c =  eps.env_infos["capacity_constraint"]
+
         costs_flat = np_to_torch(costs_flat) #convert to PyTorch tensor
 
         if self._maximum_entropy:
@@ -256,8 +261,6 @@ class CPO(VPG):
                 obs_flat, returns_flat)
             kl_before = self._compute_kl_constraint(obs)
             constraint_val_before = self._compute_constraint_value(costs_flat, masks)
-            print("CONSTRAINT VAL BEFORE")
-            print(constraint_val_before)
 
         self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
                     advs_flat, costs_flat, cost_advs_flat, masks)
@@ -270,8 +273,6 @@ class CPO(VPG):
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
             constraint_val_after = self._compute_constraint_value(costs_flat, masks)
-            print("CONSTRAINT VAL AFTER")
-            print(constraint_val_after)
 
         with tabular.prefix(self.policy.name):
             tabular.record('/LossBefore', policy_loss_before.item())
@@ -281,8 +282,13 @@ class CPO(VPG):
             tabular.record('/KLBefore', kl_before.item())
             tabular.record('/KL', kl_after.item())
             tabular.record('/Entropy', policy_entropy.mean().item())
+
+        with tabular.prefix("CPO"):
             tabular.record('/ConstraintValBefore', constraint_val_before.item())
             tabular.record('/ConstraintValAfter', constraint_val_after.item())
+            #tabular.record('/ReplenishmentQuantity', R)
+            #tabular.record('/InventoryConstraint', Im1)
+            #tabular.record('/CapacityConstraint', c)
 
         with tabular.prefix(self._value_function.name):
             tabular.record('/LossBefore', vf_loss_before.item())

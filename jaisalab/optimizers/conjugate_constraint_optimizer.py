@@ -225,12 +225,13 @@ class ConjugateConstraintOptimizer(Optimizer):
             for step, prev_param, param in zip(descent_step, prev_params,
                                                params):
                 step = ratio * step
-                new_param = prev_param.data - step
+                new_param = prev_param.data + step
                 param.data = new_param.data
 
             loss = f_loss()
             cost_loss = f_cost()
             constraint_val = f_constraint()
+
             if (loss < loss_before and cost_loss < cost_loss_before
                 and constraint_val <= self._max_constraint_value):
                 break

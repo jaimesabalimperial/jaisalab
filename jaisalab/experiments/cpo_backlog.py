@@ -6,6 +6,7 @@ import os
 
 #misc
 import torch
+from dowel import logger, StdOutput
 
 #jaisalab
 from jaisalab.utils.env import env_setup
@@ -17,9 +18,7 @@ from jaisalab.safety_constraints import InventoryConstraints
 import garage
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
-from garage import Trainer
-from dowel import logger, StdOutput
-from garage import wrap_experiment
+from garage import Trainer, wrap_experiment
 from garage.experiment.deterministic import set_seed
 from garage.sampler import LocalSampler, WorkerFactory
 from garage.torch.policies import GaussianMLPPolicy
@@ -54,12 +53,12 @@ def cpo_inv_mng_backlog(ctxt=None, seed=1):
     trainer = Trainer(ctxt)
 
     policy = GaussianMLPPolicy(env.spec,
-                               hidden_sizes=[32, 32],
+                               hidden_sizes=[64, 64],
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)
 
     value_function = GaussianMLPValueFunction(env_spec=env.spec,
-                                              hidden_sizes=(32, 32),
+                                              hidden_sizes=(64, 64),
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
 
@@ -81,4 +80,4 @@ def cpo_inv_mng_backlog(ctxt=None, seed=1):
                 center_adv=False)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=100, batch_size=1024)
+    trainer.train(n_epochs=300, batch_size=1024)

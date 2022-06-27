@@ -1,18 +1,32 @@
+#misc
 import os 
+import glob
 import numpy as np 
 import matplotlib.pyplot as plt 
 import pandas as pd
 import csv
 
+#jaisalab
 from jaisalab.utils import get_time_stamp_as_string
 
 class Plotter():
-    def __init__(self, fdir, data_dir=None, dtype='np', savefig=True, **kwargs):
+    def __init__(self, plot_latest=True, fdir=None, data_dir=None, dtype='np', savefig=True, **kwargs):
         if data_dir is None:
             data_dir = 'data/local/experiment'
 
         self.data_dir = data_dir
-        self.fdir = fdir
+
+        if plot_latest: 
+            list_of_data_dirs = [x[0] for x in os.walk(data_dir)]
+            latest_data_dir = max(list_of_data_dirs, key=os.path.getctime)
+            self.fdir = latest_data_dir
+            self.dir_name = latest_data_dir.split('/')[-1]
+        else: 
+            if fdir is not None: 
+                self.fdir = fdir
+            else: 
+                raise TypeError("'NoneType' object is not an accesible data directory.")
+
         self.savefig = savefig
         self.fig_kwargs = kwargs
 
@@ -21,10 +35,12 @@ class Plotter():
         elif dtype == 'pd':
             self.data = self.collect_data_as_pd()
         
-        self.savedir = 'plots'
+        self.flags = {1:'returns', 2:'kl', 
+                      3:'constraint_vals', 4:'entropy',
+                      5:'losses'}
 
     def _collect_data(self):
-        file = open(self.data_dir + f'/{self.fdir}/progress.csv')
+        file = open(f'{self.fdir}/progress.csv')
         csvreader = csv.reader(file) #csv reader
         #get metric names
         metrics = [] 
@@ -55,10 +71,20 @@ class Plotter():
         df = pd.DataFrame.from_dict(data_dict)
         return df
 
+    def _savefig(self,flag):
+        if self.savefig:
+            try:
+                if 'plots' not in os.listdir():
+                    os.mkdir('plots/')
+                plt.savefig(f'plots/{self.dir_name}_{self.flags[flag]}')
+            except FileExistsError:
+                pass
+
     def plot_kl(self):
         pass
     def plot_losses(self):
         pass
+
     def plot_returns(self):
         avg_returns = self.data['Evaluation/AverageReturn']
         episodes = np.arange(0, len(avg_returns))
@@ -71,17 +97,13 @@ class Plotter():
         plt.xlabel('Episode')
         plt.ylabel('Returns')
         plt.legend(loc='best')
-        if self.savefig:
-            try: 
-                plt.savefig(f'plots/{self.fdir}_returns')
-            except FileNotFoundError:
-                os.mkdir('plots/')
-                plt.savefig(f'plots/{self.fdir}_returns')
+        self._savefig(flag=1)
 
     def plot_entropy(self):
         pass
-    def plot_constraints(self):
-        constraint_val = self.data['GaussianMLPPolicy/ConstraintValAfter']
+
+    def plot_constraint_vals(self):
+        constraint_val = self.data['CPO/ConstraintValAfter']
         episodes = np.arange(0, len(constraint_val))
 
         fig = plt.figure()
@@ -90,10 +112,6 @@ class Plotter():
         plt.xlabel('Episode')
         plt.ylabel('Constraint Value')
         plt.legend(loc='best')
-        if self.savefig:
-            try: 
-                plt.savefig(f'plots/{self.fdir}_constraints')
-            except FileNotFoundError:
-                os.mkdir('plots/')
-                plt.savefig(f'plots/{self.fdir}_constraints')
+        self._savefig(flag=3)
+    
     
