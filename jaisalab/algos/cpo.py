@@ -219,14 +219,14 @@ class CPO(VPG):
         costs_flat = self.safety_constraint.evaluate(eps)
         costs = np_to_torch(pad_batch_array(costs_flat, valids, self.env_spec.max_episode_length))
         cost_advs_flat = self._compute_advantage(costs, valids, baselines)
-        avg_costs = average_costs(np_to_torch(costs_flat), masks, self._device)
+
+        costs_flat = np_to_torch(costs_flat) #convert to PyTorch tensor
+        avg_costs = average_costs(costs_flat, masks, self._device)
 
         #constraints
         R = eps.env_infos["replenishment_quantity"]
         Im1 = eps.env_infos["inventory_constraint"]
         c =  eps.env_infos["capacity_constraint"]
-
-        costs_flat = np_to_torch(costs_flat) #convert to PyTorch tensor
 
         if self._maximum_entropy:
             policy_entropies = self._compute_policy_entropy(obs)
