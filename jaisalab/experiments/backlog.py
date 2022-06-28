@@ -12,7 +12,7 @@ from dowel import logger, StdOutput
 #jaisalab
 from jaisalab.utils.env import env_setup
 from jaisalab.envs.inventory_management import InvManagementBacklogEnv
-from jaisalab.algos import CPO
+from jaisalab.algos import CPO, SafetyTRPO
 from jaisalab.safety_constraints import InventoryConstraints
 
 #garage
@@ -24,7 +24,6 @@ from garage.experiment.deterministic import set_seed
 from garage.sampler import LocalSampler, WorkerFactory
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
-from garage.torch.algos import TRPO
 
 @wrap_experiment
 def cpo_backlog(ctxt=None, seed=1):
@@ -54,12 +53,12 @@ def cpo_backlog(ctxt=None, seed=1):
     trainer = Trainer(ctxt)
 
     policy = GaussianMLPPolicy(env.spec,
-                               hidden_sizes=[64, 64],
+                               hidden_sizes=[32, 32],
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)
 
     value_function = GaussianMLPValueFunction(env_spec=env.spec,
-                                              hidden_sizes=(64, 64),
+                                              hidden_sizes=(32, 32),
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
 
@@ -78,7 +77,8 @@ def cpo_backlog(ctxt=None, seed=1):
                 safety_constraint=safety_constraint,
                 sampler=sampler,
                 discount=0.99,
-                center_adv=False)
+                center_adv=False, 
+                d_k = 0)
 
     trainer.setup(algo, env)
     trainer.train(n_epochs=500, batch_size=1024)
@@ -127,12 +127,12 @@ def trpo_backlog(ctxt=None, seed=1):
                            envs=env,
                            worker_factory=worker_factory)
 
-    algo = TRPO(env_spec=env.spec,
-                policy=policy,
-                value_function=value_function,
-                sampler=sampler,
-                discount=0.99,
-                center_adv=False)
+    algo = SafetyTRPO(env_spec=env.spec,
+                      policy=policy,
+                      value_function=value_function,
+                      sampler=sampler,
+                      discount=0.99,
+                      center_adv=False)
 
     trainer.setup(algo, env)
     trainer.train(n_epochs=500, batch_size=1024)

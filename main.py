@@ -8,9 +8,11 @@ def test_cpo_backlog():
     cpo_backlog(seed=1)
 
 def plot_experiment():
+    algo = 'CPO'
     plotter = Plotter()
     plotter.plot_returns()
-    plotter.plot_constraint_vals()
+    plotter.plot_constraint_vals(algo)
+    plotter.plot_costs(algo)
 
 if __name__ == '__main__':
     #test_trpo_backlog()

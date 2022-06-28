@@ -1,27 +1,27 @@
-"""Constrained Policy Optimization using PyTorch with the garage framework."""
+"""Trust Region Policy Optimization."""
 import torch
+import numpy as np
+
 from dowel import tabular
 
-from garage.torch._functions import zero_optim_grads
-from garage.torch.algos import VPG
-from garage.torch.optimizers import OptimizerWrapper
+#garage
+from garage.torch.algos import TRPO
+from garage.torch.optimizers import (ConjugateGradientOptimizer,
+                                     OptimizerWrapper)
 from garage.torch import filter_valids
 from garage.torch._functions import np_to_torch, zero_optim_grads
 from garage import log_performance
 from garage.np import discount_cumsum, pad_batch_array
 
-from jaisalab.optimizers import ConjugateConstraintOptimizer
+#jaisalab
 from jaisalab.utils import average_costs, estimate_constraint_value
 from jaisalab.safety_constraints import InventoryConstraints
 
-from copy import deepcopy
-import numpy as np
-
-from jaisalab.utils.agent import estimate_constraint_value
 
 
-class CPO(VPG):
-    """Constrained Policy Optimization (CPO).
+class SafetyTRPO(TRPO):
+    """Trust Region Policy Optimization (TRPO) that logs information
+    about the costs intrinsic to the safety constraints of the environment.
 
     Args:
         env_spec (EnvSpec): Environment specification.
@@ -33,6 +33,8 @@ class CPO(VPG):
             for policy.
         vf_optimizer (garage.torch.optimizer.OptimizerWrapper): Optimizer for
             value function.
+        safety_constraint (jaisalab.safety_constraints.BaseConstraint): Safety
+            constraint of enviornment.
         num_train_per_epoch (int): Number of train_once calls per epoch.
         discount (float): Discount.
         gae_lambda (float): Lambda used for generalized advantage
@@ -54,6 +56,7 @@ class CPO(VPG):
             dense entropy to the reward for each time step. 'regularized' adds
             the mean entropy to the surrogate objective. See
             https://arxiv.org/abs/1805.00909 for more details.
+
     """
 
     def __init__(self,
@@ -63,7 +66,7 @@ class CPO(VPG):
                  sampler,
                  policy_optimizer=None,
                  vf_optimizer=None,
-                 safety_constraint=None,
+                 safety_constraint = None,
                  num_train_per_epoch=1,
                  discount=0.99,
                  gae_lambda=0.98,
@@ -72,13 +75,11 @@ class CPO(VPG):
                  policy_ent_coeff=0.0,
                  use_softplus_entropy=False,
                  stop_entropy_gradient=False,
-                 entropy_method='no_entropy', 
-                 grad_norm=False, 
-                 d_k = 0):
+                 entropy_method='no_entropy'):
 
         if policy_optimizer is None:
             policy_optimizer = OptimizerWrapper(
-                (ConjugateConstraintOptimizer, dict(max_kl=0.01)),
+                (ConjugateGradientOptimizer, dict(max_constraint_value=0.01)),
                 policy)
         if vf_optimizer is None:
             vf_optimizer = OptimizerWrapper(
@@ -86,16 +87,14 @@ class CPO(VPG):
                 value_function,
                 max_optimization_epochs=10,
                 minibatch_size=64)
-
+        
         if safety_constraint is None:
             self.safety_constraint = InventoryConstraints()
         else: 
             self.safety_constraint = safety_constraint
         
         self._device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        self.grad_norm = grad_norm
         self.env_spec = env_spec
-        self._d_k = d_k
 
         super().__init__(env_spec=env_spec,
                          policy=policy,
@@ -112,88 +111,7 @@ class CPO(VPG):
                          use_softplus_entropy=use_softplus_entropy,
                          stop_entropy_gradient=stop_entropy_gradient,
                          entropy_method=entropy_method)
-
-    def _compute_objective(self, advantages, obs, actions, rewards):
-        r"""Compute objective value.
-
-        Args:
-            advantages (torch.Tensor): Advantage value at each step
-                with shape :math:`(N \dot [T], )`.
-            obs (torch.Tensor): Observation from the environment
-                with shape :math:`(N \dot [T], O*)`.
-            actions (torch.Tensor): Actions fed to the environment
-                with shape :math:`(N \dot [T], A*)`.
-
-        Returns:
-            torch.Tensor: Calculated objective values
-                with shape :math:`(N \dot [T], )`.
-
-        """
-        with torch.no_grad():
-            old_ll = self._old_policy(obs)[0].log_prob(actions)
-
-        new_ll = self.policy(obs)[0].log_prob(actions)
-        likelihood_ratio = torch.exp(new_ll - old_ll)
-
-        # Calculate surrogate
-        surrogate = advantages * likelihood_ratio 
-
-        return surrogate
     
-
-    def _compute_cost_loss_with_adv(self, obs, actions, costs, cost_advantages):
-        r"""Compute mean value of loss.
-
-        --> Only difference with _compute_loss_with_adv() method is that the cost 
-        is defined as a minimisation objective while returns are trying to be 
-        maximised.
-
-        Args:
-            obs (torch.Tensor): Observation from the environment
-                with shape :math:`(N \dot [T], O*)`.
-            actions (torch.Tensor): Actions fed to the environment
-                with shape :math:`(N \dot [T], A*)`.
-            rewards (torch.Tensor): Acquired rewards
-                with shape :math:`(N \dot [T], )`.
-            cost_advantages (torch.Tensor): Advantage value at each step for costs
-                with shape :math:`(N \dot [T], )`.
-
-        Returns:
-            torch.Tensor: Calculated negative mean scalar value of objective.
-
-        """
-        objectives = self._compute_objective(cost_advantages, obs, actions, costs)
-
-        if self._entropy_regularzied:
-            policy_entropies = self._compute_policy_entropy(obs)
-            objectives += self._policy_ent_coeff * policy_entropies
-
-        return objectives.mean()
-    
-    def _get_loss_grad(self, obs, actions, rewards, advantages):
-        """"""
-        with torch.set_grad_enabled(True):
-            loss = self._compute_loss_with_adv(obs, actions, rewards, advantages)
-
-        grads = torch.autograd.grad(loss, self.policy.parameters())
-        loss_grad = torch.cat([grad.view(-1) for grad in grads]).detach() #g  
-
-        if self.grad_norm == True:
-            loss_grad = loss_grad/torch.norm(loss_grad)
-
-        return loss, loss_grad
-    
-    def _get_cost_loss_grad(self, obs, actions, costs, cost_advantages):
-        """"""
-        with torch.set_grad_enabled(True):
-            cost_loss = self._compute_cost_loss_with_adv(obs, actions, costs, cost_advantages)
-
-        cost_grads = torch.autograd.grad(cost_loss, self.policy.parameters())
-        cost_loss_grad = torch.cat([grad.view(-1) for grad in cost_grads]).detach() #g 
-        cost_loss_grad = cost_loss_grad/torch.norm(cost_loss_grad) 
-
-        return cost_loss, cost_loss_grad
-
     def _train_once(self, itr, eps):
         """Train the algorithm once.
 
@@ -246,8 +164,7 @@ class CPO(VPG):
                 obs_flat, returns_flat)
             kl_before = self._compute_kl_constraint(obs)
 
-        self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
-                    advs_flat, costs_flat, cost_advs_flat, masks)
+        self._train(obs_flat, actions_flat, rewards_flat, returns_flat, advs_flat)
 
         with torch.no_grad():
             policy_loss_after = self._compute_loss_with_adv(
@@ -267,7 +184,7 @@ class CPO(VPG):
             tabular.record('/KL', kl_after.item())
             tabular.record('/Entropy', policy_entropy.mean().item())
 
-        with tabular.prefix("CPO"):
+        with tabular.prefix("TRPO"):
             tabular.record('/AvgDiscountedCosts', constraint_val.item())
             tabular.record('/AvgCosts', avg_costs.item())
             #tabular.record('/ReplenishmentQuantity', R)
@@ -285,62 +202,5 @@ class CPO(VPG):
                                                eps,
                                                discount=self._discount)
         return np.mean(undiscounted_returns)
-    
 
-    def _train(self, obs, actions, rewards, returns, advs, costs, cost_advs, masks):
-        r"""Train the policy and value function with minibatch.
 
-        Args:
-            obs (torch.Tensor): Observation from the environment with shape
-                :math:`(N, O*)`.
-            actions (torch.Tensor): Actions fed to the environment with shape
-                :math:`(N, A*)`.
-            rewards (torch.Tensor): Acquired rewards with shape :math:`(N, )`.
-            returns (torch.Tensor): Acquired returns with shape :math:`(N, )`.
-            advs (torch.Tensor): Advantage value at each step with shape
-                :math:`(N, )`.
-
-        """
-        for dataset in self._policy_optimizer.get_minibatch(
-                obs, actions, rewards, advs, costs, cost_advs, masks):
-            self._train_policy(*dataset)
-        for dataset in self._vf_optimizer.get_minibatch(obs, returns):
-            self._train_value_function(*dataset)
-
-    def _train_policy(self, obs, actions, rewards, advantages, 
-                      costs, cost_advantages, masks):
-        r"""Train the policy.
-
-        Args:
-            obs (torch.Tensor): Observation from the environment
-                with shape :math:`(N, O*)`.
-            actions (torch.Tensor): Actions fed to the environment
-                with shape :math:`(N, A*)`.
-            rewards (torch.Tensor): Acquired rewards
-                with shape :math:`(N, )`.
-            advantages (torch.Tensor): Advantage value at each step
-                with shape :math:`(N, )`.
-
-        Returns:
-            torch.Tensor: Calculated mean scalar value of policy loss (float).
-
-        """
-        # pylint: disable=protected-access
-        zero_optim_grads(self._policy_optimizer._optimizer)
-        loss, loss_grad = self._get_loss_grad(obs, actions, rewards, advantages)
-        cost_loss, cost_loss_grad = self._get_cost_loss_grad(obs, actions, costs, cost_advantages)
-
-        constraint_value = estimate_constraint_value(costs, masks, self._discount, self._device)
-
-        self._policy_optimizer.step(
-            f_loss=lambda: self._compute_loss_with_adv(obs, actions, rewards,
-                                                       advantages),
-            f_cost=lambda: self._compute_cost_loss_with_adv(obs, actions, costs,
-                                                       cost_advantages),                                           
-            f_constraint=lambda: self._compute_kl_constraint(obs), 
-            loss_grad=loss_grad, 
-            cost_loss_grad=cost_loss_grad, 
-            constraint_value=constraint_value, 
-            d_k=self._d_k)
-
-        return loss, cost_loss

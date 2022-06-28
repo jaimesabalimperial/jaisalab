@@ -37,7 +37,7 @@ class Plotter():
         
         self.flags = {1:'returns', 2:'kl', 
                       3:'constraint_vals', 4:'entropy',
-                      5:'losses'}
+                      5:'losses', 6:'costs'}
 
     def _collect_data(self):
         file = open(f'{self.fdir}/progress.csv')
@@ -102,8 +102,20 @@ class Plotter():
     def plot_entropy(self):
         pass
 
-    def plot_constraint_vals(self):
-        constraint_val = self.data['CPO/ConstraintValAfter']
+    def plot_costs(self, algo):
+        costs = self.data[f'{algo}/AvgCosts']
+        episodes = np.arange(0, len(costs))
+
+        fig = plt.figure()
+        plt.grid()
+        plt.plot(episodes, costs, color='b', label='AvgCosts')
+        plt.xlabel('Episode')
+        plt.ylabel('AvgCosts')
+        plt.legend(loc='best')
+        self._savefig(flag=6)
+
+    def plot_constraint_vals(self, algo):
+        constraint_val = self.data[f'{algo}/AvgDiscountedCosts']
         episodes = np.arange(0, len(constraint_val))
 
         fig = plt.figure()
