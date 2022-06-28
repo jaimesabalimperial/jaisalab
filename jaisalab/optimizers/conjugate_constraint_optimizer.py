@@ -47,7 +47,7 @@ class ConjugateConstraintOptimizer(Optimizer):
                  max_kl,
                  cg_iters=10,
                  max_backtracks=15,
-                 backtrack_ratio=0.8,
+                 backtrack_ratio=0.2,
                  hvp_reg_coeff=1e-5,
                  accept_violation=False,
                  grad_norm=False):
