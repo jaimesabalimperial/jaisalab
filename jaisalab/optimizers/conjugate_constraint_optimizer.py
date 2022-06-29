@@ -1,9 +1,7 @@
 """Conjugate Constraint Optimizer.
-
 Performs constrained optimization via line search. The search direction is computed using a conjugate gradient
 algorithm, which gives x = A^{-1}g, where A is a second order approximation of the constraint and g is the gradient
 of the loss function.
-
 Inspired by git@github.com:jachiam/cpo.git (specifically cpo/optimizers/conjugate_constraint_optimizer.py)
 """
 
@@ -22,11 +20,9 @@ from jaisalab.utils.math import *
 
 class ConjugateConstraintOptimizer(Optimizer):
     """Performs constrained optimization via backtracking line search.
-
     The search direction is computed using a conjugate gradient algorithm,
     which gives x = A^{-1}g, where A is a second order approximation of the
     constraint and g is the gradient of the loss function.
-
     Args:
         params (iterable): Iterable of parameters to optimize.
         max_constraint_value (float): Maximum constraint value.
@@ -39,7 +35,6 @@ class ConjugateConstraintOptimizer(Optimizer):
         accept_violation (bool): whether to accept the descent step if it
             violates the line search condition after exhausting all
             backtracking budgets.
-
     """
 
     def __init__(self,
@@ -127,7 +122,6 @@ class ConjugateConstraintOptimizer(Optimizer):
     def step(self, f_loss, f_cost, f_constraint, loss_grad, cost_loss_grad,
              constraint_value, d_k):  # pylint: disable=arguments-differ
         """Take an optimization step.
-
         Args:
             f_loss (callable): Function to compute the loss.
             f_cost (callable): Function to compute cost loss.
@@ -135,7 +129,6 @@ class ConjugateConstraintOptimizer(Optimizer):
             loss_grad: Gradient of objective loss. 
             cost_loss_grad : Gradient of cost loss.
             constraint_value : Value of constraint. 
-
         """
         # Collect trainable parameters and gradients
         params = []
@@ -149,7 +142,7 @@ class ConjugateConstraintOptimizer(Optimizer):
 
         # Compute step direction
         step_dir = _conjugate_gradient(f_Ax, -loss_grad, self._cg_iters)
-        cost_step_dir = _conjugate_gradient(f_Ax, -cost_loss_grad, self._cg_iters)
+        cost_step_dir = _conjugate_gradient(f_Ax, cost_loss_grad, self._cg_iters)
 
         # Calculate optimium step direction and replace nan with 0.
         opt_stepdir = self._get_optimal_step_dir(cost_loss_grad, loss_grad, step_dir, 
@@ -162,7 +155,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         if np.isnan(step_size):
             step_size = 1.
 
-        descent_step = step_size * step_dir
+        descent_step = step_size * opt_stepdir
 
         # Update parameters using backtracking line search
         self._backtracking_line_search(params, descent_step, f_loss,
@@ -196,10 +189,8 @@ class ConjugateConstraintOptimizer(Optimizer):
 
     def __setstate__(self, state):
         """Restore the optimizer state.
-
         Args:
             state (dict): State dictionary.
-
         """
         if 'hvp_reg_coeff' not in state['state']:
             warnings.warn(
@@ -261,4 +252,3 @@ class ConjugateConstraintOptimizer(Optimizer):
             #revert to previous params
             for step, prev, cur in zip(descent_step, prev_params, params):
                 cur.data = prev.data 
-
