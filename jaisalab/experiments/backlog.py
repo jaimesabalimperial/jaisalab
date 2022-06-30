@@ -11,17 +11,19 @@ from dowel import logger, StdOutput
 
 #jaisalab
 from jaisalab.utils.env import env_setup
-from jaisalab.envs.inventory_management import InvManagementBacklogEnv
-from jaisalab.algos import CPO, SafetyTRPO
+from jaisalab.envs.inventory_management import InvManagementBacklogEnv, InvManagementMasterEnv
+from jaisalab.algos.cpo import CPO
+from jaisalab.algos.trpo import SafetyTRPO
 from jaisalab.safety_constraints import InventoryConstraints
+from jaisalab.sampler.sampler_safe import SamplerSafe
 
 #garage
 import garage
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
 from garage import Trainer, wrap_experiment
+from garage.sampler import WorkerFactory
 from garage.experiment.deterministic import set_seed
-from garage.sampler import LocalSampler, WorkerFactory
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
 
@@ -62,23 +64,23 @@ def cpo_backlog(ctxt=None, seed=1):
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
 
-    #need to specify a worker factory to create sampler
-    worker_factory = WorkerFactory(max_episode_length=env.max_episode_length)
+    safety_baseline = GaussianMLPValueFunction(env_spec=env.spec,
+                                            hidden_sizes=(64, 64),
+                                            hidden_nonlinearity=torch.tanh,
+                                            output_nonlinearity=None)
 
-    sampler = LocalSampler(agents=policy,
-                           envs=env,
-                           worker_factory=worker_factory)
+    sampler = SamplerSafe(agents=policy,
+                          envs=env)
 
-    safety_constraint = InventoryConstraints()
+    safety_constraint = InventoryConstraints(baseline=safety_baseline)
 
     algo = CPO(env_spec=env.spec,
-                policy=policy,
-                value_function=value_function,
-                safety_constraint=safety_constraint,
-                sampler=sampler,
-                discount=0.99,
-                center_adv=False, 
-                d_k = 0)
+               policy=policy,
+               value_function=value_function,
+               safety_constraint=safety_constraint,
+               sampler=sampler,
+               discount=0.99,
+               center_adv=False)
 
     trainer.setup(algo, env)
     trainer.train(n_epochs=500, batch_size=1024)
@@ -120,12 +122,9 @@ def trpo_backlog(ctxt=None, seed=1):
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
 
-    #need to specify a worker factory to create sampler
-    worker_factory = WorkerFactory(max_episode_length=env.max_episode_length)
-
-    sampler = LocalSampler(agents=policy,
-                           envs=env,
-                           worker_factory=worker_factory)
+    sampler = SamplerSafe(agents=policy,
+                          envs=env, 
+                          max_episode_length=env.spec.max_episode_length)
 
     algo = SafetyTRPO(env_spec=env.spec,
                       policy=policy,

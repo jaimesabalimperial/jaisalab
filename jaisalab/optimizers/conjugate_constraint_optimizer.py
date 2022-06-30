@@ -7,7 +7,7 @@ Inspired by git@github.com:jachiam/cpo.git (specifically cpo/optimizers/conjugat
 
 import warnings
 
-from dowel import logger
+from dowel import logger, tabular
 import numpy as np
 import torch
 from torch.optim import Optimizer
@@ -65,69 +65,169 @@ class ConjugateConstraintOptimizer(Optimizer):
         a = -(q/lamda + lamda*self._max_kl)/2
         return a   
 
-    def _get_optimal_step_dir(self, cost_loss_grad, loss_grad, step_dir, 
-                              cost_step_dir, constraint_value, d_k, f_Ax):
+    def _get_optimal_step_dir(self, f_Ax, params, step_dir, 
+                              safety_loss_grad, lin_constraint):
         """Solve optimisation problem using duality if algorithm takes a 
         step that produces a feasible iterate of the policy. However, sometimes, 
         it may take a bad step that produces an infeasible iterate of the policy 
         and when this happens an update that purely decreases the constraint value
         is used to recover from this bad step."""
 
-        #define q, r, S
-        q = -loss_grad.dot(step_dir) #g^T.H^-1.g
-        r = loss_grad.dot(cost_step_dir) #g^T.H^-1.a
-        S = -cost_loss_grad.dot(cost_step_dir) #a^T.H^-1.a 
+        #following jachiam/cpo
+        approx_g = f_Ax(step_dir)
+        q = step_dir.dot(approx_g) # approx = g^T H^{-1} g
+        delta = 2 * self._max_quad_constraint_val
 
-        d_k = tensor(d_k).to(constraint_value.dtype).to(constraint_value.device)
-        cc = constraint_value - d_k # c would be positive for most part of the training
+        eps = 1e-8
+        c = lin_constraint - self._max_lin_constraint_val
 
-        #find optimal lambda_a and lambda_b
-        A = torch.sqrt((q - (r**2)/S)/(self._max_kl - (cc**2)/S))
-        B = torch.sqrt(q/self._max_kl)
-        if cc>0:
-            opt_lam_a = torch.max(r/cc,A)
-            opt_lam_b = torch.max(0*A,torch.min(B,r/cc))
+        if c > 0: 
+            logger.log("warning! safety constraint is already violated")
         else: 
-            opt_lam_b = torch.max(r/cc,B)
-            opt_lam_a = torch.max(0*A,torch.min(A,r/cc))
+            self.last_safe_point = [p.clone() for p in params]
         
-        #find values of optimal lambdas 
-        opt_f_a = self.f_a_lambda(r, S, q, cc, opt_lam_a)
-        opt_f_b = self.f_b_lambda(q, opt_lam_b)
+        # can't stop won't stop (unless something in the conditional checks / calculations that follow
+        # require premature stopping of optimization process)
+        stop_flag = False
+
+        if safety_loss_grad.dot(safety_loss_grad) <= eps:
+            # if safety gradient is zero, linear constraint is not present;
+            # ignore its implementation.
+            lam = np.sqrt(q / delta)
+            nu = 0
+            w = 0
+            r,s,A,B = 0,0,0,0
+            optim_case = 4
+        else:
+            norm_b = np.sqrt(safety_loss_grad.dot(safety_loss_grad))
+            unit_b = safety_loss_grad / norm_b
+            w = norm_b * _conjugate_gradient(f_Ax, unit_b, cg_iters=self._cg_iters)
+
+            r = w.dot(approx_g) # approx = b^T H^{-1} g
+            s = w.dot(f_Ax(w))    # approx = b^T H^{-1} b
+
+            # figure out lambda coeff (lagrange multiplier for trust region)
+            # and nu coeff (lagrange multiplier for linear constraint)
+            A = q - r**2 / s                # this should always be positive by Cauchy-Schwarz
+            B = delta - c**2 / s            # this one says whether or not the closest point on the plane is feasible
+
+            # if (B < 0), that means the trust region plane doesn't intersect the safety boundary
+
+            if c <0 and B < 0:
+                # point in trust region is feasible and safety boundary doesn't intersect
+                # ==> entire trust region is feasible
+                optim_case = 3
+            elif c < 0 and B > 0:
+                # x = 0 is feasible and safety boundary intersects
+                # ==> most of trust region is feasible
+                optim_case = 2
+            elif c > 0 and B > 0:
+                # x = 0 is infeasible (bad! unsafe!) and safety boundary intersects
+                # ==> part of trust region is feasible
+                # ==> this is 'recovery mode'
+                optim_case = 1
+            else:
+                # x = 0 infeasible (bad! unsafe!) and safety boundary doesn't intersect
+                # ==> whole trust region infeasible
+                # ==> optimization problem infeasible!!!
+                optim_case = 0
+
+            # default dual vars, which assume safety constraint inactive
+            # (this corresponds to either optim_case == 3,
+            #  or optim_case == 2 under certain conditions)
+            lam = np.sqrt(q / delta)
+            nu  = 0
+
+            if optim_case == 2 or optim_case == 1:
+                # dual function is piecewise continuous
+                # on region (a):
+                #
+                #   L(lam) = -1/2 (A / lam + B * lam) - r * c / s
+                # 
+                # on region (b):
+                #
+                #   L(lam) = -1/2 (q / lam + delta * lam)
+                # 
+
+                lam_mid = r / c
+                L_mid = - 0.5 * (q / lam_mid + lam_mid * delta)
+
+                lam_a = np.sqrt(A / (B + eps))
+                L_a = -np.sqrt(A*B) - r*c / (s + eps)                 
+                # note that for optim_case == 1 or 2, B > 0, so this calculation should never be an issue
+
+                lam_b = np.sqrt(q / delta)
+                L_b = -np.sqrt(q * delta)
+
+                #those lam's are solns to the pieces of piecewise continuous dual function.
+                #the domains of the pieces depend on whether or not c < 0 (x=0 feasible),
+                #and so projection back on to those domains is determined appropriately.
+                if lam_mid > 0:
+                    if c < 0:
+                        # here, domain of (a) is [0, lam_mid)
+                        # and domain of (b) is (lam_mid, infty)
+                        if lam_a > lam_mid:
+                            lam_a = lam_mid
+                            L_a   = L_mid
+                        if lam_b < lam_mid:
+                            lam_b = lam_mid
+                            L_b   = L_mid
+                    else:
+                        # here, domain of (a) is (lam_mid, infty)
+                        # and domain of (b) is [0, lam_mid)
+                        if lam_a < lam_mid:
+                            lam_a = lam_mid
+                            L_a   = L_mid
+                        if lam_b > lam_mid:
+                            lam_b = lam_mid
+                            L_b   = L_mid
+
+                    if L_a >= L_b:
+                        lam = lam_a
+                    else:
+                        lam = lam_b
+
+                else:
+                    if c < 0:
+                        lam = lam_b
+                    else:
+                        lam = lam_a
+
+                nu = max(0, lam * c - r) / (s + eps)
+
+        with tabular.prefix("ConjugateConstraintOptimizer"):
+            logger.log("OptimCase", optim_case)  # 4 / 3: trust region totally in safe region; 
+                                                 # 2 : trust region partly intersects safe region, and current point is feasible
+                                                 # 1 : trust region partly intersects safe region, and current point is infeasible
+                                                 # 0 : trust region does not intersect safe region
+            logger.log("LagrangeLamda", lam) # dual variable for trust region
+            logger.log("LagrangeNu", nu)     # dual variable for safety constraint
+            logger.log("OptimDiagnostic_c",c) # if > 0, constraint is violated 
+            if nu == 0:
+                logger.log("safety constraint is not active!")
+            
+            # Predict worst-case next S
+            nextS = lin_constraint + np.sqrt(delta * s)
+            logger.record_tabular("OptimDiagnostic_WorstNextS",nextS)
         
-        if opt_f_a > opt_f_b:
-            opt_lambda = opt_lam_a
+        if optim_case > 0:
+            flat_descent_step = (1. / (lam + eps) ) * (step_dir + nu * w )
         else:
-            opt_lambda = opt_lam_b
-            
-        #find optimal nu
-        nu = (opt_lambda*cc - r)/S
-        if nu>0:
-            opt_nu = nu 
-        else:
-            opt_nu = 0
-            
-        """ find optimal step direction """
-        # check for feasibility
-        if ((cc**2)/S - self._max_kl) > 0 and cc>0: #INFEASIBLE
-            #opt_stepdir = -torch.sqrt(2*max_kl/s).unsqueeze(-1)*Fvp(cost_stepdir)
-            opt_stepdir = torch.sqrt(2*self._max_kl/S)*f_Ax(cost_step_dir)
-        else: #FEASIBLE
-            #opt_grad = -(loss_grad + opt_nu*cost_loss_grad)/opt_lambda
-            opt_stepdir = (step_dir - opt_nu*cost_step_dir)/opt_lambda
-            #opt_stepdir = conjugate_gradients(Fvp, -opt_grad, 10)
+            # current default behavior for attempting infeasible recovery:
+            # take a step on natural safety gradient
+            flat_descent_step = np.sqrt(delta / (s + eps)) * w
 
-        return opt_stepdir
+        return flat_descent_step
 
-    def step(self, f_loss, f_cost, f_constraint, loss_grad, cost_loss_grad,
-             constraint_value, d_k):  # pylint: disable=arguments-differ
+    def step(self, f_loss, lin_leq_constraint, quad_leq_constraint, 
+             loss_grad, safety_loss_grad):  # pylint: disable=arguments-differ
         """Take an optimization step.
         Args:
             f_loss (callable): Function to compute the loss.
-            f_cost (callable): Function to compute cost loss.
-            f_constraint (callable): Function to compute the constraint value.
+            lin_leq_constraint (callable): Function to compute safety loss.
+            quad_leq_constraint (callable): Function to compute the constraint value (KL-Divergence).
             loss_grad: Gradient of objective loss. 
-            cost_loss_grad : Gradient of cost loss.
+            safety_loss_grad : Gradient of cost loss.
             constraint_value : Value of constraint. 
         """
         # Collect trainable parameters and gradients
@@ -136,30 +236,26 @@ class ConjugateConstraintOptimizer(Optimizer):
             for p in group['params']:
                 params.append(p)
 
+        constraint_term_1, constraint_value_1 = quad_leq_constraint
+        constraint_term_2, constraint_value_2 = lin_leq_constraint
+        
+        self._max_quad_constraint_val = constraint_value_1
+        self._max_lin_constraint_val = constraint_value_2
+
         # Build Hessian-vector-product function
-        f_Ax = _build_hessian_vector_product(f_constraint, params,
-                                             self._hvp_reg_coeff)
+        f_Ax = _build_hessian_vector_product(func=constraint_term_1, params=params,
+                                             reg_coeff=self._hvp_reg_coeff)
 
         # Compute step direction
-        step_dir = _conjugate_gradient(f_Ax, -loss_grad, self._cg_iters)
-        cost_step_dir = _conjugate_gradient(f_Ax, cost_loss_grad, self._cg_iters)
+        step_dir = _conjugate_gradient(f_Ax, loss_grad, self._cg_iters)
 
         # Calculate optimium step direction and replace nan with 0.
-        opt_stepdir = self._get_optimal_step_dir(cost_loss_grad, loss_grad, step_dir, 
-                                                 cost_step_dir, constraint_value, d_k, f_Ax)
-        opt_stepdir[opt_stepdir.ne(opt_stepdir)] = 0.
-
-        # Compute step size
-        step_size = np.sqrt(2.0 * self._max_kl * (1. /(torch.dot(opt_stepdir, f_Ax(opt_stepdir)) + 1e-8)))
-
-        if np.isnan(step_size):
-            step_size = 1.
-
-        descent_step = step_size * opt_stepdir
+        flat_descent_step = self._get_optimal_step_dir(f_Ax, params, step_dir, 
+                                                       safety_loss_grad, constraint_term_2())
 
         # Update parameters using backtracking line search
-        self._backtracking_line_search(params, descent_step, f_loss,
-                                       f_cost, f_constraint)
+        self._backtracking_line_search(params, flat_descent_step, f_loss=f_loss,
+                                       f_safety=constraint_term_2, f_constraint=constraint_term_1)
 
     @property
     def state(self):
@@ -202,11 +298,11 @@ class ConjugateConstraintOptimizer(Optimizer):
         self.param_groups = state['param_groups']
 
     def _backtracking_line_search(self, params, descent_step, f_loss,
-                                  f_cost, f_constraint):
+                                  f_safety, f_constraint):
         prev_params = [p.clone() for p in params]
         ratio_list = self._backtrack_ratio**np.arange(self._max_backtracks)
         loss_before = f_loss()
-        cost_loss_before = f_cost()
+        cost_loss_before = f_safety()
 
         param_shapes = [p.shape or torch.Size([1]) for p in params]
         descent_step = unflatten_tensors(descent_step, param_shapes)
@@ -216,11 +312,11 @@ class ConjugateConstraintOptimizer(Optimizer):
             for step, prev_param, param in zip(descent_step, prev_params,
                                                params):
                 step = ratio * step
-                new_param = prev_param.data + step
+                new_param = prev_param.data - step
                 param.data = new_param.data
 
             loss = f_loss()
-            cost_loss = f_cost()
+            cost_loss = f_safety()
             constraint_val = f_constraint()
 
             if (loss < loss_before and cost_loss < cost_loss_before
@@ -237,9 +333,9 @@ class ConjugateConstraintOptimizer(Optimizer):
             logger.log('Line search condition violated. Rejecting the step!')
 
             if torch.isnan(cost_loss):
-                logger.log('Violated because cost loss is NaN')      
+                logger.log('Violated because safety loss is NaN')      
             if cost_loss >= cost_loss_before:
-                logger.log('Violated because cost loss not improving')                  
+                logger.log('Violated because safety loss not improving')                  
             if torch.isnan(loss):
                 logger.log('Violated because loss is NaN')
             if torch.isnan(constraint_val):

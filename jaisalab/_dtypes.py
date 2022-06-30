@@ -1,0 +1,68 @@
+from garage import EpisodeBatch
+import numpy as np
+from garage.np import pad_batch_array
+
+class SafeEpisodeBatch(EpisodeBatch):
+    def __init__(self, env_spec, episode_infos, observations, last_observations,
+                 actions, rewards, safety_rewards, env_infos, agent_infos, step_types, lengths):
+
+        object.__setattr__(self, 'safety_rewards', safety_rewards)
+
+        super().__init__(env_spec, episode_infos, observations, last_observations, 
+                         actions, rewards, env_infos, agent_infos, step_types, lengths)
+    
+    @property
+    def padded_safety_rewards(self):
+        """Padded rewards.
+
+        Returns:
+            np.ndarray: Padded rewards with shape of
+                :math:`(N, max_episode_length)`.
+
+        """
+        return pad_batch_array(self.safety_rewards, self.lengths,
+                               self.env_spec.max_episode_length)
+    
+    @classmethod
+    def concatenate(cls, *batches):
+        """Create a EpisodeBatch by concatenating EpisodeBatches.
+
+        Args:
+            batches (list[EpisodeBatch]): Batches to concatenate.
+
+        Returns:
+            EpisodeBatch: The concatenation of the batches.
+
+        """
+        if __debug__:
+            for b in batches:
+                assert (set(b.env_infos.keys()) == set(
+                    batches[0].env_infos.keys()))
+                assert (set(b.agent_infos.keys()) == set(
+                    batches[0].agent_infos.keys()))
+        env_infos = {
+            k: np.concatenate([b.env_infos[k] for b in batches])
+            for k in batches[0].env_infos.keys()
+        }
+        agent_infos = {
+            k: np.concatenate([b.agent_infos[k] for b in batches])
+            for k in batches[0].agent_infos.keys()
+        }
+        episode_infos = {
+            k: np.concatenate([b.episode_infos_by_episode[k] for b in batches])
+            for k in batches[0].episode_infos_by_episode.keys()
+        }
+        return cls(
+            episode_infos=episode_infos,
+            env_spec=batches[0].env_spec,
+            observations=np.concatenate(
+                [batch.observations for batch in batches]),
+            last_observations=np.concatenate(
+                [batch.last_observations for batch in batches]),
+            actions=np.concatenate([batch.actions for batch in batches]),
+            rewards=np.concatenate([batch.rewards for batch in batches]),
+            safety_rewards=np.concatenate([batch.safety_rewards for batch in batches]),
+            env_infos=env_infos,
+            agent_infos=agent_infos,
+            step_types=np.concatenate([batch.step_types for batch in batches]),
+            lengths=np.concatenate([batch.lengths for batch in batches]))
