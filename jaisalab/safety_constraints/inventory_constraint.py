@@ -2,7 +2,7 @@ from jaisalab.safety_constraints import BaseConstraint
 import numpy as np
 
 class InventoryConstraints(BaseConstraint):
-    def __init__(self, max_value=1, baseline=None, 
+    def __init__(self, max_value=1e-3, baseline=None, 
                  baseline_optimizer=None, penalty=1, 
                  **kwargs):
         super().__init__(max_value, baseline=baseline, 
@@ -23,7 +23,9 @@ class InventoryConstraints(BaseConstraint):
 
         for i, (orders, inventories, capacities) in enumerate(zip(R,Im1,c)):
             for stage_order, stage_inventory, stage_capacity in zip(orders, inventories, capacities):
-                if stage_order > stage_inventory or stage_order > stage_capacity: 
-                    costs[i] = self.penalty
+                if stage_order > stage_inventory:
+                    costs[i] += self.penalty
+                if stage_order > stage_capacity: 
+                    costs[i] += self.penalty
         return costs
 

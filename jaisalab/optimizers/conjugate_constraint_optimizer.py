@@ -79,7 +79,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         delta = 2 * self._max_quad_constraint_val
 
         eps = 1e-8
-        c = lin_constraint - self._max_lin_constraint_val
+        c = lin_constraint - self._max_lin_constraint_val #should be > 0 if constraint 
 
         if c > 0: 
             logger.log("warning! safety constraint is already violated")
@@ -91,9 +91,10 @@ class ConjugateConstraintOptimizer(Optimizer):
         stop_flag = False
 
         if safety_loss_grad.dot(safety_loss_grad) <= eps:
+            logger.log("Safety gradient is zero --> linear constraint not present (ignore implementation)")
             # if safety gradient is zero, linear constraint is not present;
             # ignore its implementation.
-            lam = np.sqrt(q / delta)
+            lam = torch.sqrt(q / delta)
             nu = 0
             w = 0
             r,s,A,B = 0,0,0,0
@@ -112,7 +113,6 @@ class ConjugateConstraintOptimizer(Optimizer):
             B = delta - c**2 / s            # this one says whether or not the closest point on the plane is feasible
 
             # if (B < 0), that means the trust region plane doesn't intersect the safety boundary
-
             if c <0 and B < 0:
                 # point in trust region is feasible and safety boundary doesn't intersect
                 # ==> entire trust region is feasible
@@ -135,7 +135,7 @@ class ConjugateConstraintOptimizer(Optimizer):
             # default dual vars, which assume safety constraint inactive
             # (this corresponds to either optim_case == 3,
             #  or optim_case == 2 under certain conditions)
-            lam = np.sqrt(q / delta)
+            lam = torch.sqrt(q / delta)
             nu  = 0
 
             if optim_case == 2 or optim_case == 1:
@@ -152,12 +152,12 @@ class ConjugateConstraintOptimizer(Optimizer):
                 lam_mid = r / c
                 L_mid = - 0.5 * (q / lam_mid + lam_mid * delta)
 
-                lam_a = np.sqrt(A / (B + eps))
-                L_a = -np.sqrt(A*B) - r*c / (s + eps)                 
+                lam_a = torch.sqrt(A / (B + eps))
+                L_a = -torch.sqrt(A*B) - r*c / (s + eps)                 
                 # note that for optim_case == 1 or 2, B > 0, so this calculation should never be an issue
 
-                lam_b = np.sqrt(q / delta)
-                L_b = -np.sqrt(q * delta)
+                lam_b = torch.sqrt(q / delta)
+                L_b = -torch.sqrt(q * delta)
 
                 #those lam's are solns to the pieces of piecewise continuous dual function.
                 #the domains of the pieces depend on whether or not c < 0 (x=0 feasible),
@@ -196,26 +196,26 @@ class ConjugateConstraintOptimizer(Optimizer):
                 nu = max(0, lam * c - r) / (s + eps)
 
         with tabular.prefix("ConjugateConstraintOptimizer"):
-            logger.log("OptimCase", optim_case)  # 4 / 3: trust region totally in safe region; 
+            tabular.record("/OptimCase", optim_case)  # 4 / 3: trust region totally in safe region; 
                                                  # 2 : trust region partly intersects safe region, and current point is feasible
                                                  # 1 : trust region partly intersects safe region, and current point is infeasible
                                                  # 0 : trust region does not intersect safe region
-            logger.log("LagrangeLamda", lam) # dual variable for trust region
-            logger.log("LagrangeNu", nu)     # dual variable for safety constraint
-            logger.log("OptimDiagnostic_c",c) # if > 0, constraint is violated 
+            tabular.record("/LagrangeLamda", lam) # dual variable for trust region
+            tabular.record("/LagrangeNu", nu)     # dual variable for safety constraint
+            tabular.record("/OptimDiagnostic_c", c) # if > 0, constraint is violated 
             if nu == 0:
                 logger.log("safety constraint is not active!")
             
             # Predict worst-case next S
             nextS = lin_constraint + np.sqrt(delta * s)
-            logger.record_tabular("OptimDiagnostic_WorstNextS",nextS)
+            tabular.record("OptimDiagnostic_WorstNextS",nextS)
         
         if optim_case > 0:
             flat_descent_step = (1. / (lam + eps) ) * (step_dir + nu * w )
         else:
             # current default behavior for attempting infeasible recovery:
             # take a step on natural safety gradient
-            flat_descent_step = np.sqrt(delta / (s + eps)) * w
+            flat_descent_step = torch.sqrt(delta / (s + eps)) * w
 
         return flat_descent_step
 
@@ -305,6 +305,11 @@ class ConjugateConstraintOptimizer(Optimizer):
         cost_loss_before = f_safety()
 
         param_shapes = [p.shape or torch.Size([1]) for p in params]
+
+        #consider case where descent step is a torch.Tensor
+        if isinstance(descent_step, torch.Tensor):
+            descent_step = descent_step.detach().numpy()
+
         descent_step = unflatten_tensors(descent_step, param_shapes)
         assert len(descent_step) == len(params)
 
@@ -329,7 +334,7 @@ class ConjugateConstraintOptimizer(Optimizer):
              or torch.isnan(cost_loss)
              or cost_loss >= cost_loss_before
              and not self._accept_violation):
-
+             
             logger.log('Line search condition violated. Rejecting the step!')
 
             if torch.isnan(cost_loss):

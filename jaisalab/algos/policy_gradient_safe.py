@@ -239,9 +239,9 @@ class PolicyGradientSafe(VPG):
             tabular.record('/KL', kl_after.item())
             tabular.record('/Entropy', policy_entropy.mean().item())
 
-        with tabular.prefix("CPO"):
-            tabular.record('/AvgDiscountedCosts', constraint_val.item())
-            tabular.record('/AvgCosts', torch.mean(safety_returns_flat).item())
+        with tabular.prefix('Evaluation'):
+            tabular.record('/ConstraintValue', constraint_val.item())
+            tabular.record('/AverageCosts', torch.mean(safety_returns_flat).item())
             #tabular.record('/ReplenishmentQuantity', R)
             #tabular.record('/InventoryConstraint', Im1)
             #tabular.record('/CapacityConstraint', c)
@@ -309,8 +309,6 @@ class PolicyGradientSafe(VPG):
         if self.grad_norm:
             loss_grad = loss_grad/torch.norm(loss_grad) 
         
-
-
         #if using conjugate constraint optimizer step has different args
         if self.safety_constrained_optimizer:
             #calculate safety_loss and grad

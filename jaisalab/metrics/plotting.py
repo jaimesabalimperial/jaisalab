@@ -102,20 +102,20 @@ class Plotter():
     def plot_entropy(self):
         pass
 
-    def plot_costs(self, algo):
-        costs = self.data[f'{algo}/AvgCosts']
+    def plot_costs(self):
+        costs = self.data['Evaluation/AverageCosts']
         episodes = np.arange(0, len(costs))
 
         fig = plt.figure()
         plt.grid()
-        plt.plot(episodes, costs, color='b', label='AvgCosts')
+        plt.plot(episodes, costs, color='b', label='Average Costs')
         plt.xlabel('Episode')
         plt.ylabel('AvgCosts')
         plt.legend(loc='best')
         self._savefig(flag=6)
 
-    def plot_constraint_vals(self, algo):
-        constraint_val = self.data[f'{algo}/AvgDiscountedCosts']
+    def plot_constraint_vals(self):
+        constraint_val = self.data['Evaluation/ConstraintValue']
         episodes = np.arange(0, len(constraint_val))
 
         fig = plt.figure()
