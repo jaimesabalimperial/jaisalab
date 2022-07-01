@@ -18,6 +18,10 @@ from garage import EnvSpec
 import numpy as np
 from scipy.stats import *
 
+#jaisalab
+from jaisalab.envs.saute_env import saute_env
+from jaisalab.envs.safe_env import SafeEnv
+
 class InvManagementMasterEnv(gym.Env):
     '''
     The supply chain environment is structured as follows:
@@ -435,13 +439,40 @@ class InvManagementMasterEnv(gym.Env):
         return self._RESET()
         
 class InvManagementBacklogEnv(InvManagementMasterEnv):
-    def __init__(self, *args, **kwargs):
+    """Inventory management with backlogged sales."""
+    def __init__(self, mode='train', *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._mode = mode
         
 class InvManagementLostSalesEnv(InvManagementMasterEnv):
-    def __init__(self, *args, **kwargs):
+    """Inventory management with lost sales."""
+    def __init__(self, mode='train', *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._mode = mode
         self.backlog = False
         self.observation_space = gym.spaces.Box(
             low=np.zeros(self.pipeline_length), # Never goes negative without backlog
             high=np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods, dtype=np.int32)
+
+#SAUTE Environments
+class SafeInvManagementBacklogEnv(SafeEnv, InvManagementBacklogEnv):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def _safety_cost_fn(self, state: np.ndarray, action: np.ndarray, next_state: np.ndarray) -> np.ndarray: 
+        pass
+
+class SafeInvManagementLostSalesEnv(SafeEnv, InvManagementLostSalesEnv):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def _safety_cost_fn(self, state: np.ndarray, action: np.ndarray, next_state: np.ndarray) -> np.ndarray: 
+        pass
+
+@saute_env
+class SauteInvManagementBacklogEnv(SafeInvManagementBacklogEnv):
+    """Sauted inventory management environment with backlogged sales."""
+
+@saute_env
+class SauteInvManagementBacklogEnv(SafeInvManagementLostSalesEnv):
+    """Sauted inventory management environment with lost sales."""
