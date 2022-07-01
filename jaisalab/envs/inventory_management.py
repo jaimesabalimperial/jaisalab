@@ -310,8 +310,8 @@ class InvManagementMasterEnv(gym.Env):
         Rcopy = R.copy() # copy original replenishment quantity
 
         #enforce capacity and inventory constraints
-        R[R>=c] = c[R>=c] # enforce capacity constraint
-        R[R>=Im1] = Im1[R>=Im1] # enforce available inventory constraint
+        #R[R>=c] = c[R>=c] # enforce capacity constraint
+        #R[R>=Im1] = Im1[R>=Im1] # enforce available inventory constraint
         self.R[n,:] = R # store R[n]
         
         # receive inventory replenishment placed L periods ago

@@ -86,9 +86,8 @@ class SafetyTRPO(PolicyGradientSafe):
             if not isinstance(policy_optimizer, ConjugateGradientOptimizer):
                 warning("Policy Optimizer for TRPO should be ConjugateGradientOptimizer.")
             
-            policy_optimizer = OptimizerWrapper(
-                    (policy_optimizer, dict(max_constraint_value=step_size)),
-                    policy)
+            policy_optimizer = OptimizerWrapper(policy_optimizer,
+                                                policy)
 
         if vf_optimizer is None:
             vf_optimizer = OptimizerWrapper(

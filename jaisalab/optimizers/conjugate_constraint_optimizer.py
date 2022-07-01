@@ -185,20 +185,9 @@ class ConjugateConstraintOptimizer(Optimizer):
 
                 nu = max(0, lam * c - r) / (s + eps)
 
-        with tabular.prefix("ConjugateConstraintOptimizer"):
-            tabular.record("/OptimCase", optim_case)  # 4 / 3: trust region totally in safe region; 
-                                                 # 2 : trust region partly intersects safe region, and current point is feasible
-                                                 # 1 : trust region partly intersects safe region, and current point is infeasible
-                                                 # 0 : trust region does not intersect safe region
-            tabular.record("/LagrangeLamda", lam) # dual variable for trust region
-            tabular.record("/LagrangeNu", nu)     # dual variable for safety constraint
-            tabular.record("/OptimDiagnostic_c", c) # if > 0, constraint is violated 
-            if nu == 0:
-                logger.log("safety constraint is not active!")
+        if nu == 0:
+            logger.log("safety constraint is not active!")
             
-            # Predict worst-case next S
-            nextS = lin_constraint + np.sqrt(delta * s)
-            tabular.record("OptimDiagnostic_WorstNextS",nextS)
         
         if optim_case > 0:
             flat_descent_step = (1. / (lam + eps) ) * (step_dir + nu * w )

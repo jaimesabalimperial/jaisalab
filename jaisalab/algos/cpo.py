@@ -76,9 +76,8 @@ class CPO(PolicyGradientSafe):
                  grad_norm=False):
 
         if policy_optimizer is None:
-            policy_optimizer = OptimizerWrapper(
-                (ConjugateConstraintOptimizer, dict(max_constraint_value=step_size)),
-                policy)
+            policy_optimizer = OptimizerWrapper(ConjugateConstraintOptimizer,
+                                                policy)
 
         if vf_optimizer is None:
             vf_optimizer = OptimizerWrapper(

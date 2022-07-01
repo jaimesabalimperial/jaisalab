@@ -1,10 +1,12 @@
 #misc
+from multiprocessing.sharedctypes import Value
 import os 
 import random
 import numpy as np 
 import matplotlib.pyplot as plt 
 import pandas as pd
 import csv
+import warnings
 
 #jaisalab
 from jaisalab.utils import get_time_stamp_as_string
@@ -69,6 +71,7 @@ class Plotter():
         self.fig_kwargs = kwargs
         self._dtype = dtype
         self._colors = ['b', 'orange', 'g', 'r']
+        self._plot_color = random.choice(self._colors)
         self._plot_flags = {1:'returns', 2:'kl', 
                             3:'constraint_vals', 4:'entropy',
                             5:'losses', 6:'costs'}
@@ -85,10 +88,27 @@ class Plotter():
 
         #convert to NumPy array
         data = np.array(data)
-        data = data.astype(np.float32)
+
+        bad_metrics = None
+        try:
+            data = data.astype(np.float32)
+        except ValueError:
+            #a column in the dataset cant be converted to desired datatype
+            bad_metrics = []
+            old_data = data.copy()
+            data = np.zeros(np.shape(old_data), dtype=np.float32)
+            for col in range(len(data[0])):
+                if '' in old_data[:,col]:
+                    bad_metrics.append(metrics[col])
+                    warnings.warn(message=f'Couldnt convert {metrics[col]} array to type np.float32.')
+                    continue
+                else: 
+                    data[:,col] = old_data[:,col].astype(np.float32)
 
         data_dict = {}
         for i, metric in enumerate(metrics):
+            if bad_metrics is not None and metric in bad_metrics:
+                continue
             data_dict[metric] = data[:,i]
         
         return data_dict
@@ -131,7 +151,27 @@ class Plotter():
             except FileExistsError:
                 pass
     
-    def _plot(self, x_array, y_array, ylabel, std=None, title=None):
+    def _get_data_arrays(self, y_column, std_column=None):
+        if isinstance(self.fdir, (list, tuple)):
+            y_array = [data[y_column] for data in self.data.values()]
+            x_array = [np.arange(0, len(y)) for y in y_array]
+            if std_column is not None:
+                std_array = [data[std_column] for data in self.data.values()]
+                return x_array, y_array, std_array
+            else: 
+                return x_array, y_array
+        else: 
+            y_array = self.data[y_column]
+            x_array = np.arange(0, len(y_array))
+            if std_column is not None:
+                std_array = self.data[std_column]
+                return x_array, y_array, std_array
+            else: 
+                return x_array, y_array
+        
+    
+    def _plot(self, x_array, y_array, ylabel, 
+              std=None, title=None):
         fig = plt.figure()
         plt.grid()
         if isinstance(self.fdir, (list, tuple)): #multiple experiments to plot
@@ -146,9 +186,10 @@ class Plotter():
         else: 
             fig = plt.figure()
             plt.grid()
-            plt.plot(x_array, y_array, color=random.choice(self._colors), label=self._exp_label)
+            plt.plot(x_array, y_array, color=self._plot_color, label=self._exp_label)
             if std is not None: 
-                plt.fill_between(x_array, y_array-std, y_array+std, color=random.choice(self._colors))
+                plt.fill_between(x_array, y_array-std, y_array+std, 
+                                 color=self._plot_color, alpha=0.4)
 
         if title: 
             plt.title(title)
@@ -157,30 +198,21 @@ class Plotter():
         plt.ylabel(ylabel)
         plt.legend(loc='best')
 
-    def plot_kl(self):
-        pass
-    def plot_losses(self):
-        pass
-
     def plot_returns(self):
         y_column = 'Evaluation/AverageReturn'
         std_column = 'Evaluation/StdReturn'
         ylabel = 'Average Return'
-        y_array = [data[y_column] for data in self.data.values()]
-        x_array = [np.arange(0, len(y)) for y in y_array]
-        std_array = [data[std_column] for data in self.data.values()]
-        
+    
+        x_array, y_array, std_array = self._get_data_arrays(y_column, std_column)
+
         self._plot(x_array, y_array, ylabel, std=std_array)
         self._savefig(flag=1)
-
-    def plot_entropy(self):
-        pass
 
     def plot_costs(self):
         y_column = 'Evaluation/AverageCosts'
         ylabel = 'Average Costs'
-        y_array = [data[y_column] for data in self.data.values()]
-        x_array = [np.arange(0, len(y)) for y in y_array]
+
+        x_array, y_array = self._get_data_arrays(y_column)
         
         self._plot(x_array, y_array, ylabel)
         self._savefig(flag=6)
@@ -188,10 +220,18 @@ class Plotter():
     def plot_constraint_vals(self):
         y_column = 'Evaluation/ConstraintValue'
         ylabel = 'Constraint Value'
-        y_array = [data[y_column] for data in self.data.values()]
-        x_array = [np.arange(0, len(y)) for y in y_array]
-        
+
+        x_array, y_array = self._get_data_arrays(y_column)
+
         self._plot(x_array, y_array, ylabel)
         self._savefig(flag=3)
+    
+    def plot_kl(self):
+        pass
+    def plot_losses(self):
+        pass
+    def plot_entropy(self):
+        pass
+
     
     
