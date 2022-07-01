@@ -38,6 +38,5 @@ class BaseConstraint(object):
 
         return loss
             
-
     def get_safety_step(self):
         return self.max_value

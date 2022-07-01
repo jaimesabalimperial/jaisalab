@@ -1,3 +1,9 @@
+"""
+Implements policy gradient algorithms in environments where safety
+is considered (i.e. where there is a cost associated with state-action pairs).
+
+Author: Jaime Sabal Bermúdez
+"""
 import torch
 from dowel import tabular
 
@@ -6,9 +12,9 @@ from garage.torch.algos import VPG
 from garage.torch import compute_advantages, filter_valids
 from garage.torch._functions import np_to_torch, zero_optim_grads
 from garage import log_performance
-from garage.np import discount_cumsum, pad_batch_array
+from garage.np import discount_cumsum
 
-from jaisalab.optimizers import ConjugateConstraintOptimizer
+#jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
 from jaisalab.utils import estimate_constraint_value
 from jaisalab.safety_constraints import InventoryConstraints, BaseConstraint

@@ -8,6 +8,7 @@ from garage.sampler import DefaultWorker
 from jaisalab import SafeEpisodeBatch
 
 class SafeWorker(DefaultWorker):
+    """Worker for environments that incorporate safety."""
     def __init__(self, *, safety_constraint, seed, max_episode_length, worker_number):
         self.safety_constraint = safety_constraint
         super().__init__(seed=seed, 

@@ -2,8 +2,19 @@ from jaisalab.safety_constraints import BaseConstraint
 import numpy as np
 
 class InventoryConstraints(BaseConstraint):
+    """InvManagementMasterEnv safety constraint class. It considers the specified 
+    constraints regarding stages' supply capacities and inventories to determine if 
+    the replenishment orders violate these (i.e. are larger than them). 
+
+    Args: 
+        max_value (float): Maximum value for the safety surrogate loss (Default=1e-3).
+        baseline (garage.torch.value_functions.ValueFunction): Safety baseline to calculate 
+                safety advantages. 
+        baseline_optimizer (garage.torch.optimizers.OptimizerWrapper): Safety baseline optimizer. 
+        penalty (float): Penalty for violating constraint. 
+    """
     def __init__(self, max_value=1e-3, baseline=None, 
-                 baseline_optimizer=None, penalty=1, 
+                 baseline_optimizer=None, penalty=1., 
                  **kwargs):
         super().__init__(max_value, baseline=baseline, 
                          baseline_optimizer=baseline_optimizer, 

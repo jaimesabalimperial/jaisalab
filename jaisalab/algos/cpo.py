@@ -1,10 +1,10 @@
 """Constrained Policy Optimization using PyTorch with the garage framework."""
 import torch
-from dowel import tabular
 
+#garage
 from garage.torch.optimizers import OptimizerWrapper
-from garage.torch._functions import zero_optim_grads
 
+#jaisalab
 from jaisalab.optimizers import ConjugateConstraintOptimizer
 from jaisalab.safety_constraints import InventoryConstraints
 from jaisalab.algos import PolicyGradientSafe
@@ -23,7 +23,14 @@ class CPO(PolicyGradientSafe):
             for policy.
         vf_optimizer (garage.torch.optimizer.OptimizerWrapper): Optimizer for
             value function.
+        safety_constrained_optimizer (bool): Wether ConjugateConstraintOptimizer is being used
+                                             for policy optimization.
+        safety_constraint (jaisalab.safety_constraints.BaseConstraint): Environment safety constraint.
+        safety_discount (float): Safety discount.
+        safety_gae_lambda (float): Lambda used for generalized safety advantage
+                                   estimation.        
         num_train_per_epoch (int): Number of train_once calls per epoch.
+        step_size (float): Maximum KL-Divergence between old and new policies.
         discount (float): Discount.
         gae_lambda (float): Lambda used for generalized advantage
             estimation.
@@ -44,6 +51,7 @@ class CPO(PolicyGradientSafe):
             dense entropy to the reward for each time step. 'regularized' adds
             the mean entropy to the surrogate objective. See
             https://arxiv.org/abs/1805.00909 for more details.
+        grad_norm (bool): Wether to normalise the objective loss gradients. 
     """
 
     def __init__(self,
@@ -59,6 +67,7 @@ class CPO(PolicyGradientSafe):
                  safety_gae_lambda=1,
                  center_safety_vals=True,
                  num_train_per_epoch=1,
+                 step_size=0.01,
                  discount=0.99,
                  gae_lambda=0.98,
                  center_adv=True,
@@ -71,7 +80,7 @@ class CPO(PolicyGradientSafe):
 
         if policy_optimizer is None:
             policy_optimizer = OptimizerWrapper(
-                (ConjugateConstraintOptimizer, dict(max_kl=0.01)),
+                (ConjugateConstraintOptimizer),
                 policy)
 
         if vf_optimizer is None:
@@ -98,6 +107,7 @@ class CPO(PolicyGradientSafe):
                          safety_gae_lambda=safety_gae_lambda,
                          center_safety_vals=center_safety_vals,
                          num_train_per_epoch=num_train_per_epoch,
+                         step_size=step_size,
                          discount=discount,
                          gae_lambda=gae_lambda,
                          center_adv=center_adv,

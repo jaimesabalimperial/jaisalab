@@ -1,8 +1,5 @@
 """Trust Region Policy Optimization."""
 import torch
-import numpy as np
-
-from dowel import tabular
 
 #garage
 from garage.torch.optimizers import (ConjugateGradientOptimizer,
@@ -28,9 +25,14 @@ class SafetyTRPO(PolicyGradientSafe):
             for policy.
         vf_optimizer (garage.torch.optimizer.OptimizerWrapper): Optimizer for
             value function.
-        safety_constraint (jaisalab.safety_constraints.BaseConstraint): Safety
-            constraint of enviornment.
+        safety_constrained_optimizer (bool): Wether ConjugateConstraintOptimizer is being used
+                                             for policy optimization.
+        safety_constraint (jaisalab.safety_constraints.BaseConstraint): Environment safety constraint.
+        safety_discount (float): Safety discount.
+        safety_gae_lambda (float): Lambda used for generalized safety advantage
+                                   estimation.        
         num_train_per_epoch (int): Number of train_once calls per epoch.
+        step_size (float): Maximum KL-Divergence between old and new policies.
         discount (float): Discount.
         gae_lambda (float): Lambda used for generalized advantage
             estimation.
@@ -67,6 +69,7 @@ class SafetyTRPO(PolicyGradientSafe):
                  safety_gae_lambda=1,
                  center_safety_vals=True,
                  num_train_per_epoch=1,
+                 step_size=0.01,
                  discount=0.99,
                  gae_lambda=0.98,
                  center_adv=True,
@@ -107,6 +110,7 @@ class SafetyTRPO(PolicyGradientSafe):
                          safety_gae_lambda=safety_gae_lambda,
                          center_safety_vals=center_safety_vals,
                          num_train_per_epoch=num_train_per_epoch,
+                         step_size=step_size,
                          discount=discount,
                          gae_lambda=gae_lambda,
                          center_adv=center_adv,

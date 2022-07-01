@@ -1,8 +1,13 @@
 """Conjugate Constraint Optimizer.
+
 Performs constrained optimization via line search. The search direction is computed using a conjugate gradient
 algorithm, which gives x = A^{-1}g, where A is a second order approximation of the constraint and g is the gradient
 of the loss function.
-Inspired by git@github.com:jachiam/cpo.git (specifically cpo/optimizers/conjugate_constraint_optimizer.py)
+
+Adjustment to git@github.com:jachiam/cpo.git (specifically cpo/optimizers/conjugate_constraint_optimizer.py)
+to fit garage framework and PyTorch. 
+
+Author: Jaime Sabal Bermúdez
 """
 
 import warnings
@@ -39,7 +44,6 @@ class ConjugateConstraintOptimizer(Optimizer):
 
     def __init__(self,
                  params,
-                 max_kl,
                  cg_iters=10,
                  max_backtracks=25,
                  backtrack_ratio=0.1,
@@ -47,23 +51,12 @@ class ConjugateConstraintOptimizer(Optimizer):
                  accept_violation=False,
                  grad_norm=False):
         super().__init__(params, {})
-        self._max_kl = max_kl
         self._cg_iters = cg_iters
         self._max_backtracks = max_backtracks
         self._backtrack_ratio = backtrack_ratio
         self._hvp_reg_coeff = hvp_reg_coeff
         self._accept_violation = accept_violation
         self._grad_norm = grad_norm
-
-    def f_a_lambda(self, r, s, q, cc, lamda):
-        a = ((r**2)/s - q)/(2*lamda)
-        b = lamda*((cc**2)/s - self._max_kl)/2
-        c = - (r*cc)/s
-        return a+b+c
-    
-    def f_b_lambda(self, q, lamda):
-        a = -(q/lamda + lamda*self._max_kl)/2
-        return a   
 
     def _get_optimal_step_dir(self, f_Ax, params, step_dir, 
                               safety_loss_grad, lin_constraint):
@@ -73,7 +66,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         and when this happens an update that purely decreases the constraint value
         is used to recover from this bad step."""
 
-        #following jachiam/cpo
+        #following https://github.com/jachiam/cpo/blob/master/optimizers/conjugate_constraint_optimizer.py
         approx_g = f_Ax(step_dir)
         q = step_dir.dot(approx_g) # approx = g^T H^{-1} g
         delta = 2 * self._max_quad_constraint_val
@@ -85,11 +78,8 @@ class ConjugateConstraintOptimizer(Optimizer):
             logger.log("warning! safety constraint is already violated")
         else: 
             self.last_safe_point = [p.clone() for p in params]
-        
-        # can't stop won't stop (unless something in the conditional checks / calculations that follow
-        # require premature stopping of optimization process)
-        stop_flag = False
-
+    
+        #solve for dual variables lambda and nu
         if safety_loss_grad.dot(safety_loss_grad) <= eps:
             logger.log("Safety gradient is zero --> linear constraint not present (ignore implementation)")
             # if safety gradient is zero, linear constraint is not present;
@@ -261,7 +251,6 @@ class ConjugateConstraintOptimizer(Optimizer):
     def state(self):
         """dict: The hyper-parameters of the optimizer."""
         return {
-            'max_kl': self._max_kl,
             'cg_iters': self._cg_iters,
             'max_backtracks': self._max_backtracks,
             'backtrack_ratio': self._backtrack_ratio,
@@ -334,7 +323,7 @@ class ConjugateConstraintOptimizer(Optimizer):
              or torch.isnan(cost_loss)
              or cost_loss >= cost_loss_before
              and not self._accept_violation):
-             
+
             logger.log('Line search condition violated. Rejecting the step!')
 
             if torch.isnan(cost_loss):
