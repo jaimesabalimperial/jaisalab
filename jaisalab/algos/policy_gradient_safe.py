@@ -308,15 +308,15 @@ class PolicyGradientSafe(VPG):
         """
         # pylint: disable=protected-access
         zero_optim_grads(self._policy_optimizer._optimizer)
-
         loss = self._compute_loss_with_adv(obs, actions, rewards, advantages)
-        loss_grad = self._get_grad(loss)
-
-        if self.grad_norm:
-            loss_grad = loss_grad/torch.norm(loss_grad) 
         
         #if using conjugate constraint optimizer step has different args
         if self.safety_constrained_optimizer:
+            #calculate objective gradients and normalise (if specified)
+            loss_grad = self._get_grad(loss)
+            if self.grad_norm:
+                loss_grad = loss_grad/torch.norm(loss_grad) 
+
             #calculate safety_loss and grad
             #safety loss is in opposite direction as objective loss
             safety_loss = -self._compute_loss_with_adv(obs, actions, safety_rewards, safety_advantages)
@@ -334,11 +334,14 @@ class PolicyGradientSafe(VPG):
                 quad_leq_constraint= quad_leq_constraint, 
                 loss_grad=loss_grad, 
                 safety_loss_grad=safety_loss_grad)
+
+            return loss, safety_loss
         else: 
+            loss.backward()
             self._policy_optimizer.step(
                 f_loss=lambda: self._compute_loss_with_adv(obs, actions, rewards,
                                                         advantages),
                 f_constraint=lambda: self._compute_kl_constraint(obs))
 
-        return loss, safety_loss
+            return loss
     

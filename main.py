@@ -14,6 +14,6 @@ def plot_experiment():
     plotter.plot_costs()
 
 if __name__ == '__main__':
-    #test_trpo_backlog()
-    test_cpo_backlog()
+    test_trpo_backlog()
+    #test_cpo_backlog()
     plot_experiment()

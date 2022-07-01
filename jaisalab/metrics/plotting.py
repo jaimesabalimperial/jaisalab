@@ -79,6 +79,22 @@ class Plotter():
                 plt.savefig(f'plots/{self.dir_name}_{self.flags[flag]}')
             except FileExistsError:
                 pass
+    
+    def _multiple_inputs(self, x, y):
+        if (all(isinstance(i, list) for i in x) 
+            and all(isinstance(i, list) for i in y)):
+            return True 
+        return False
+    
+    def _plot(self, x, y, std=None, labels=None):
+        if self._multiple_inputs(x,y):
+            pass
+        else: 
+            fig = plt.figure()
+            plt.grid()
+            if std: 
+                pass
+
 
     def plot_kl(self):
         pass

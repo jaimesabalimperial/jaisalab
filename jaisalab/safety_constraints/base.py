@@ -1,8 +1,9 @@
+from xml.dom.minidom import Attr
 from dowel import logger
 import torch 
-from garage.torch.optimizers import (ConjugateGradientOptimizer,
+from garage.torch.optimizers import (
                                      OptimizerWrapper)
-from garage.torch._functions import np_to_torch, zero_optim_grads
+from garage.torch._functions import zero_optim_grads
 
 class BaseConstraint(object):
 
@@ -14,14 +15,22 @@ class BaseConstraint(object):
         self.has_baseline = baseline is not None
         if self.has_baseline:
             self.baseline = baseline
-            if baseline_optimizer is None:
-                self.baseline_optimizer = OptimizerWrapper(
-                        (torch.optim.Adam, dict(lr=2.5e-4)),
-                        self.baseline,
-                        max_optimization_epochs=10,
-                        minibatch_size=64)
-            else:  
-                self.baseline_optimizer = baseline_optimizer
+        else: 
+            raise AttributeError("Safety baseline cant be NoneType.")
+
+        if baseline_optimizer is None:
+            self.baseline_optimizer = OptimizerWrapper(
+                    (torch.optim.Adam, dict(lr=2.5e-4)),
+                    self.baseline,
+                    max_optimization_epochs=10,
+                    minibatch_size=64)
+        else: 
+            self.baseline_optimizer = OptimizerWrapper(
+                    (baseline_optimizer, dict(lr=2.5e-4)),
+                    self.baseline,
+                    max_optimization_epochs=10,
+                    minibatch_size=64)
+        
 
     def evaluate(self, paths):
         raise NotImplementedError

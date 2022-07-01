@@ -23,8 +23,6 @@ class CPO(PolicyGradientSafe):
             for policy.
         vf_optimizer (garage.torch.optimizer.OptimizerWrapper): Optimizer for
             value function.
-        safety_constrained_optimizer (bool): Wether ConjugateConstraintOptimizer is being used
-                                             for policy optimization.
         safety_constraint (jaisalab.safety_constraints.BaseConstraint): Environment safety constraint.
         safety_discount (float): Safety discount.
         safety_gae_lambda (float): Lambda used for generalized safety advantage
@@ -61,7 +59,6 @@ class CPO(PolicyGradientSafe):
                  sampler,
                  policy_optimizer=None,
                  vf_optimizer=None,
-                 safety_constrained_optimizer=True,
                  safety_constraint=None,
                  safety_discount=1,
                  safety_gae_lambda=1,
@@ -80,7 +77,7 @@ class CPO(PolicyGradientSafe):
 
         if policy_optimizer is None:
             policy_optimizer = OptimizerWrapper(
-                (ConjugateConstraintOptimizer),
+                (ConjugateConstraintOptimizer, dict(max_constraint_value=step_size)),
                 policy)
 
         if vf_optimizer is None:
@@ -94,6 +91,9 @@ class CPO(PolicyGradientSafe):
             self.safety_constraint = InventoryConstraints()
         else: 
             self.safety_constraint = safety_constraint
+
+        #CPO uses ConjugateConstraintOptimizer
+        safety_constrained_optimizer=True
 
         super().__init__(env_spec=env_spec,
                          policy=policy,

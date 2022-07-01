@@ -1,4 +1,5 @@
 """Trust Region Policy Optimization."""
+from logging import warning
 import torch
 
 #garage
@@ -25,8 +26,6 @@ class SafetyTRPO(PolicyGradientSafe):
             for policy.
         vf_optimizer (garage.torch.optimizer.OptimizerWrapper): Optimizer for
             value function.
-        safety_constrained_optimizer (bool): Wether ConjugateConstraintOptimizer is being used
-                                             for policy optimization.
         safety_constraint (jaisalab.safety_constraints.BaseConstraint): Environment safety constraint.
         safety_discount (float): Safety discount.
         safety_gae_lambda (float): Lambda used for generalized safety advantage
@@ -63,7 +62,6 @@ class SafetyTRPO(PolicyGradientSafe):
                  sampler,
                  policy_optimizer=None,
                  vf_optimizer=None,
-                 safety_constrained_optimizer=False,
                  safety_constraint=None,
                  safety_discount=1,
                  safety_gae_lambda=1,
@@ -81,8 +79,17 @@ class SafetyTRPO(PolicyGradientSafe):
 
         if policy_optimizer is None:
             policy_optimizer = OptimizerWrapper(
-                (ConjugateGradientOptimizer, dict(max_constraint_value=0.01)),
+                (ConjugateGradientOptimizer, dict(max_constraint_value=step_size)),
                 policy)
+            
+        else: 
+            if not isinstance(policy_optimizer, ConjugateGradientOptimizer):
+                warning("Policy Optimizer for TRPO should be ConjugateGradientOptimizer.")
+            
+            policy_optimizer = OptimizerWrapper(
+                    (policy_optimizer, dict(max_constraint_value=step_size)),
+                    policy)
+
         if vf_optimizer is None:
             vf_optimizer = OptimizerWrapper(
                 (torch.optim.Adam, dict(lr=2.5e-4)),
@@ -97,6 +104,9 @@ class SafetyTRPO(PolicyGradientSafe):
         
         self._device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.env_spec = env_spec
+
+        #TRPO uses ConjugateGradientOptimizer
+        safety_constrained_optimizer=False
 
         super().__init__(env_spec=env_spec,
                          policy=policy,

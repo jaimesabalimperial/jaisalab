@@ -1,5 +1,6 @@
 """Sampler that runs workers in the main process."""
 import psutil
+import torch
 
 from garage.experiment.deterministic import get_seed
 from garage.sampler import LocalSampler
@@ -8,7 +9,7 @@ from garage.sampler.worker_factory import WorkerFactory
 from jaisalab.sampler.safe_worker import SafeWorker
 from jaisalab.safety_constraints import InventoryConstraints, BaseConstraint
 from jaisalab import SafeEpisodeBatch
-
+from garage.torch.value_functions import GaussianMLPValueFunction
 
 
 class SamplerSafe(LocalSampler):
@@ -61,7 +62,11 @@ class SamplerSafe(LocalSampler):
         #impose a safety constraint to the environment
         if worker_args['safety_constraint'] is None:
             if hasattr(envs, 'supply_capacity'):
-                worker_args['safety_constraint'] = InventoryConstraints()
+                safety_baseline = GaussianMLPValueFunction(env_spec=envs.spec,
+                                        hidden_sizes=(64, 64),
+                                        hidden_nonlinearity=torch.tanh,
+                                        output_nonlinearity=None)
+                worker_args['safety_constraint'] = InventoryConstraints(baseline=safety_baseline)
             else: 
                 raise AttributeError("Please specify a safety constraint for the environment")
                 

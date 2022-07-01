@@ -121,15 +121,24 @@ def trpo_backlog(ctxt=None, seed=1):
                                               hidden_sizes=(32, 32),
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
+    
+    safety_baseline = GaussianMLPValueFunction(env_spec=env.spec,
+                                        hidden_sizes=(64, 64),
+                                        hidden_nonlinearity=torch.tanh,
+                                        output_nonlinearity=None)
+
+    safety_constraint = InventoryConstraints(baseline=safety_baseline)
 
     sampler = SamplerSafe(agents=policy,
                           envs=env, 
-                          max_episode_length=env.spec.max_episode_length)
+                          max_episode_length=env.spec.max_episode_length, 
+                          worker_args={'safety_constraint': safety_constraint})
 
     algo = SafetyTRPO(env_spec=env.spec,
                       policy=policy,
                       value_function=value_function,
                       sampler=sampler,
+                      safety_constraint=safety_constraint,
                       discount=0.99,
                       center_adv=False)
 
