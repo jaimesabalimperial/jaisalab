@@ -4,7 +4,6 @@ from datetime import datetime
 from dowel import tabular
 import numpy as np
 
-from jaisalab import SafeEpisodeBatch
 from garage import StepType
 from garage.np import discount_cumsum
 

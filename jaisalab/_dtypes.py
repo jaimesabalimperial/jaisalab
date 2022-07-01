@@ -7,7 +7,7 @@ class SafeEpisodeBatch(EpisodeBatch):
     def __init__(self, env_spec, episode_infos, observations, last_observations,
                  actions, rewards, safety_rewards, env_infos, agent_infos, step_types, lengths):
 
-        object.__setattr__(self, 'safety_rewards', safety_rewards)
+        object.__setattr__(self, 'safety_rewards', safety_rewards) #needed to add safety_rewards to EpisodeBatch attributes
 
         super().__init__(env_spec, episode_infos, observations, last_observations, 
                          actions, rewards, env_infos, agent_infos, step_types, lengths)
@@ -91,7 +91,7 @@ class SafeEpisodeBatch(EpisodeBatch):
                 [batch.last_observations for batch in batches]),
             actions=np.concatenate([batch.actions for batch in batches]),
             rewards=np.concatenate([batch.rewards for batch in batches]),
-            safety_rewards=np.concatenate([batch.safety_rewards for batch in batches]),
+            safety_rewards=np.concatenate([batch.safety_rewards for batch in batches]), #added this line to garage EpisodeBatch
             env_infos=env_infos,
             agent_infos=agent_infos,
             step_types=np.concatenate([batch.step_types for batch in batches]),
