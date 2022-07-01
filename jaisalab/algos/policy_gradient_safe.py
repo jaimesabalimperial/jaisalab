@@ -11,12 +11,11 @@ from garage.torch._functions import zero_optim_grads
 from garage.torch.algos import VPG
 from garage.torch import compute_advantages, filter_valids
 from garage.torch._functions import np_to_torch, zero_optim_grads
-from garage import log_performance
 from garage.np import discount_cumsum
 
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
-from jaisalab.utils import estimate_constraint_value
+from jaisalab.utils import estimate_constraint_value, log_performance
 from jaisalab.safety_constraints import InventoryConstraints, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 
@@ -245,9 +244,8 @@ class PolicyGradientSafe(VPG):
             tabular.record('/KL', kl_after.item())
             tabular.record('/Entropy', policy_entropy.mean().item())
 
-        with tabular.prefix('Evaluation'):
-            tabular.record('/ConstraintValue', constraint_val.item())
-            tabular.record('/AverageCosts', torch.mean(safety_returns_flat).item())
+        with tabular.prefix('Constraint'):
+            pass
             #tabular.record('/ReplenishmentQuantity', R)
             #tabular.record('/InventoryConstraint', Im1)
             #tabular.record('/CapacityConstraint', c)
@@ -259,9 +257,11 @@ class PolicyGradientSafe(VPG):
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 
+        print(type(eps))
         undiscounted_returns = log_performance(itr,
                                                eps,
-                                               discount=self._discount)
+                                               discount=self._discount,
+                                               safety_discount=self.safety_discount)
         return np.mean(undiscounted_returns)
     
 

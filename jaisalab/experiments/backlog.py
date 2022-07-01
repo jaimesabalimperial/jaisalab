@@ -11,7 +11,7 @@ from dowel import logger, StdOutput
 
 #jaisalab
 from jaisalab.utils.env import env_setup
-from jaisalab.envs.inventory_management import InvManagementBacklogEnv, InvManagementMasterEnv
+from jaisalab.envs.inventory_management import InvManagementBacklogEnv
 from jaisalab.algos.cpo import CPO
 from jaisalab.algos.trpo import SafetyTRPO
 from jaisalab.safety_constraints import InventoryConstraints
@@ -22,7 +22,6 @@ import garage
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
 from garage import Trainer, wrap_experiment
-from garage.sampler import WorkerFactory
 from garage.experiment.deterministic import set_seed
 from garage.torch.policies import GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
@@ -83,7 +82,7 @@ def cpo_backlog(ctxt=None, seed=1):
                center_adv=False)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=500, batch_size=1024)
+    trainer.train(n_epochs=200, batch_size=1024)
 
 @wrap_experiment
 def trpo_backlog(ctxt=None, seed=1):
@@ -143,4 +142,4 @@ def trpo_backlog(ctxt=None, seed=1):
                       center_adv=False)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=500, batch_size=1024)
+    trainer.train(n_epochs=200, batch_size=1024)

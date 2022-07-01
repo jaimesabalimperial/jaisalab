@@ -8,7 +8,7 @@ def test_cpo_backlog():
     cpo_backlog(seed=1)
 
 def plot_experiment():
-    fdir = ['cpo_backlog_21', 'trpo_backlog_7']
+    fdir = ['cpo_backlog', 'trpo_backlog']
     plotter = Plotter(fdir=fdir)
     plotter.plot_returns()
     plotter.plot_constraint_vals()

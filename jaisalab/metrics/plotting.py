@@ -22,7 +22,8 @@ class Plotter():
         
         - fdir (str, list): Name of the experiment results directory within the data directory.
           If a list or tuple, all the experiments specified will be plotted. If None, plot_latest
-          should be True.
+          should be True. *NOTE*: It is assumed that fdirs (i.e. experiment functions) are named 
+          in the format '{algorithm}_{environment}'. 
 
         - data_dir (str): Data directory. Default = 'data/local/experiment'.
 
@@ -209,16 +210,17 @@ class Plotter():
         self._savefig(flag=1)
 
     def plot_costs(self):
-        y_column = 'Evaluation/AverageCosts'
+        y_column = 'Evaluation/AverageSafetyReturn'
+        std_column = 'Evaluation/StdSafetyReturn'
         ylabel = 'Average Costs'
 
-        x_array, y_array = self._get_data_arrays(y_column)
+        x_array, y_array, std_array = self._get_data_arrays(y_column, std_column)
         
-        self._plot(x_array, y_array, ylabel)
+        self._plot(x_array, y_array, ylabel, std=std_array)
         self._savefig(flag=6)
 
     def plot_constraint_vals(self):
-        y_column = 'Evaluation/ConstraintValue'
+        y_column = 'Evaluation/AverageDiscountedSafetyReturn'
         ylabel = 'Constraint Value'
 
         x_array, y_array = self._get_data_arrays(y_column)
