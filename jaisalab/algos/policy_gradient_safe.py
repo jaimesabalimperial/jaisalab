@@ -58,7 +58,8 @@ class PolicyGradientSafe(VPG):
                 use_softplus_entropy=False,
                 stop_entropy_gradient=False,
                 entropy_method='no_entropy', 
-                grad_norm=False):
+                grad_norm=False, 
+                is_saute = False):
 
         if safety_constraint is None:
             self.safety_constraint = InventoryConstraints()
@@ -88,6 +89,7 @@ class PolicyGradientSafe(VPG):
         self.safety_discount = safety_discount
         self.safety_gae_lambda = safety_gae_lambda
         self.center_safety_vals = center_safety_vals
+        self._is_saute = is_saute
 
         super().__init__(env_spec=env_spec,
                          policy=policy,
@@ -260,7 +262,8 @@ class PolicyGradientSafe(VPG):
         undiscounted_returns = log_performance(itr,
                                                eps,
                                                discount=self._discount,
-                                               safety_discount=self.safety_discount)
+                                               safety_discount=self.safety_discount, 
+                                               is_saute = self._is_saute)
         return np.mean(undiscounted_returns)
     
 

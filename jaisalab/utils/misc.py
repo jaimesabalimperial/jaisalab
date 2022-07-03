@@ -18,7 +18,8 @@ def get_time_stamp_as_string():
     date_time_str = date_time.strftime("%d-%b-%Y (%H-%M-%S)")
     return date_time_str
 
-def log_performance(itr, batch, discount, safety_discount, prefix='Evaluation'):
+def log_performance(itr, batch, discount, safety_discount,
+                    prefix='Evaluation', is_saute=False):
     """Evaluate the performance of an algorithm on a batch of episodes.
 
     Args:
@@ -38,8 +39,14 @@ def log_performance(itr, batch, discount, safety_discount, prefix='Evaluation'):
     termination = []
     success = []
     for eps in batch.split():
-        returns.append(discount_cumsum(eps.rewards, discount))
-        undiscounted_returns.append(sum(eps.rewards))
+        #account for saute algorithms
+        if is_saute: 
+            rewards = eps.env_infos['true_reward']
+        else: 
+            rewards = eps.rewards
+
+        returns.append(discount_cumsum(rewards, discount))
+        undiscounted_returns.append(sum(rewards))
         safety_returns.append(discount_cumsum(eps.safety_rewards, safety_discount))
         undiscounted_safety_returns.append(sum(eps.safety_rewards))
         termination.append(

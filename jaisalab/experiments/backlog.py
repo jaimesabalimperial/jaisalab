@@ -199,7 +199,8 @@ def saute_trpo_backlog(ctxt=None, seed=1):
                       sampler=sampler,
                       safety_constraint=safety_constraint,
                       discount=0.99,
-                      center_adv=False)
+                      center_adv=False, 
+                      is_saute=True)
 
     trainer.setup(algo, env)
     trainer.train(n_epochs=400, batch_size=1024)

@@ -75,7 +75,8 @@ class SafetyTRPO(PolicyGradientSafe):
                  policy_ent_coeff=0.0,
                  use_softplus_entropy=False,
                  stop_entropy_gradient=False,
-                 entropy_method='no_entropy'):
+                 entropy_method='no_entropy', 
+                 is_saute=False):
 
         if policy_optimizer is None:
             policy_optimizer = OptimizerWrapper(
@@ -127,6 +128,7 @@ class SafetyTRPO(PolicyGradientSafe):
                          policy_ent_coeff=policy_ent_coeff,
                          use_softplus_entropy=use_softplus_entropy,
                          stop_entropy_gradient=stop_entropy_gradient,
-                         entropy_method=entropy_method)
+                         entropy_method=entropy_method,
+                         is_saute=is_saute)
     
 

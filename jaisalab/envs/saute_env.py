@@ -13,7 +13,7 @@ def saute_env(cls):
         def __init__(
             self,
             safety_budget:float=1.0, 
-            saute_discount_factor:float=0.99,
+            saute_discount_factor:float=1.0,
             max_ep_len:int=200,
             min_rel_budget:float=1., # minimum relative (with respect to safety_budget) budget
             max_rel_budget:float=1., # maximum relative (with respect to safety_budget) budget 
