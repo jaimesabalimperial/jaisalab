@@ -1,15 +1,18 @@
 """Sampler that runs workers in the main process."""
+#misc
 import psutil
 import torch
 
+#garage
 from garage.experiment.deterministic import get_seed
 from garage.sampler import LocalSampler
 from garage.sampler.worker_factory import WorkerFactory
+from garage.torch.value_functions import GaussianMLPValueFunction
 
+#jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
 from jaisalab.safety_constraints import InventoryConstraints, BaseConstraint
 from jaisalab import SafeEpisodeBatch
-from garage.torch.value_functions import GaussianMLPValueFunction
 
 
 class SamplerSafe(LocalSampler):

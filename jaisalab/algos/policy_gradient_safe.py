@@ -257,7 +257,6 @@ class PolicyGradientSafe(VPG):
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 
-        print(type(eps))
         undiscounted_returns = log_performance(itr,
                                                eps,
                                                discount=self._discount,
