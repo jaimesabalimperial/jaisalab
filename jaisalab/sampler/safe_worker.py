@@ -67,6 +67,7 @@ class SafeWorker(DefaultWorker):
                             env_infos=dict(env_infos),
                             agent_infos=dict(agent_infos),
                             lengths=np.asarray(lengths, dtype='i'))
+                            
         #consider safety constraint
         safety_rewards = self.safety_constraint.evaluate(path)
 

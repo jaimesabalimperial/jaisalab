@@ -63,12 +63,17 @@ def saute_env(cls):
         @property
         def unsafe_reward(self):
             return self._unsafe_reward
+        
+        @property
+        def spec(self):
+            """garage.envs.env_spec.EnvSpec: The envionrment specification."""
+            return self.wrap.spec
 
         def reset(self) -> np.ndarray:
             """Resets the environment."""
             state = self.wrap.reset()
             if self.wrap._mode == "train":
-                self._safety_state = self.wrap.np_random.uniform(low=self.min_rel_budget, high=self.max_rel_budget)
+                self._safety_state = np.random.uniform(low=self.min_rel_budget, high=self.max_rel_budget)
             elif self.wrap._mode == "test" or self.wrap._mode == "deterministic":
                 self._safety_state = self.test_rel_budget
             else:
@@ -89,7 +94,7 @@ def saute_env(cls):
 
         def step(self, action):
             """ Step through the environment. """
-            next_obs, reward, done, info = self.wrap.step(action)        
+            next_obs, reward, done, info = self.wrap.step(action)     
             next_safety_state = self.safety_step(info['cost'])
             info['true_reward'] = reward         
             info['next_safety_state'] = next_safety_state

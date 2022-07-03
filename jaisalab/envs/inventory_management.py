@@ -214,6 +214,10 @@ class InvManagementMasterEnv(gym.Env):
         # seed random state
         if seed != None:
             np.random.seed(seed=int(seed))
+    
+    def _get_obs(self):
+        """Return current state of the environment."""
+        return self.state
         
     def _RESET(self):
         '''
@@ -307,6 +311,7 @@ class InvManagementMasterEnv(gym.Env):
 
         # available inventory at the m+1 stage (note: last stage has unlimited supply)
         Im1 = np.append(I[1:], np.Inf) 
+        self.curr_available_inventory = Im1.copy()
         
         # place replenishment order
         if n>=1: # add backlogged replenishment orders to current request
@@ -450,17 +455,32 @@ class InvManagementLostSalesEnv(InvManagementMasterEnv):
         super().__init__(*args, **kwargs)
         self._mode = mode
         self.backlog = False
-        self.observation_space = gym.spaces.Box(
-            low=np.zeros(self.pipeline_length), # Never goes negative without backlog
-            high=np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods, dtype=np.int32)
+        self._observation_space = akro.Box(low=np.zeros(self.pipeline_length), # Never goes negative without backlog
+                                           high=np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods, 
+                                           dtype=np.int32)
 
-#SAUTE Environments
+
+#Modifications for SAUTE implementation (https://github.com/huawei-noah/HEBO)
 class SafeInvManagementBacklogEnv(SafeEnv, InvManagementBacklogEnv):
     def __init__(self) -> None:
         super().__init__()
 
     def _safety_cost_fn(self, state: np.ndarray, action: np.ndarray, next_state: np.ndarray) -> np.ndarray: 
-        pass
+        """In reality don't really need to use the inputted state, action, next_state; 
+        --> can use logged replenishment order and inventory and supply capacity constraints
+        in their attribute form at period n to calculate the cost of the provided state-action pair."""
+        n = self.period - 1 #last period
+        R = self.R[n,:]
+        available_inv = self.curr_available_inventory #available inventory in previous state
+        c = self.supply_capacity #supply capacity
+
+        cost = 0
+        for stage_order, stage_inventory, stage_capacity in zip(R, available_inv, c):
+            if stage_order > stage_inventory:
+                cost += 1
+            if stage_order > stage_capacity: 
+                cost += 1
+        return cost
 
 class SafeInvManagementLostSalesEnv(SafeEnv, InvManagementLostSalesEnv):
     def __init__(self) -> None:
@@ -474,5 +494,5 @@ class SauteInvManagementBacklogEnv(SafeInvManagementBacklogEnv):
     """Sauted inventory management environment with backlogged sales."""
 
 @saute_env
-class SauteInvManagementBacklogEnv(SafeInvManagementLostSalesEnv):
+class SauteInvManagementLostSalesEnv(SafeInvManagementLostSalesEnv):
     """Sauted inventory management environment with lost sales."""
