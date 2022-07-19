@@ -98,7 +98,7 @@ class InvManagementMasterEnv(gym.Env):
         
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
-        
+
         # input parameters
         try:
             self.init_inv = np.array(list(self.I0))
@@ -487,7 +487,21 @@ class SafeInvManagementLostSalesEnv(SafeEnv, InvManagementLostSalesEnv):
         super().__init__()
 
     def _safety_cost_fn(self, state: np.ndarray, action: np.ndarray, next_state: np.ndarray) -> np.ndarray: 
-        pass
+        """In reality don't really need to use the inputted state, action, next_state; 
+        --> can use logged replenishment order and inventory and supply capacity constraints
+        in their attribute form at period n to calculate the cost of the provided state-action pair."""
+        n = self.period - 1 #last period
+        R = self.R[n,:]
+        available_inv = self.curr_available_inventory #available inventory in previous state
+        c = self.supply_capacity #supply capacity
+
+        cost = 0
+        for stage_order, stage_inventory, stage_capacity in zip(R, available_inv, c):
+            if stage_order > stage_inventory:
+                cost += 1
+            if stage_order > stage_capacity: 
+                cost += 1
+        return cost
 
 @saute_env
 class SauteInvManagementBacklogEnv(SafeInvManagementBacklogEnv):

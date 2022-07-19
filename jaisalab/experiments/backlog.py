@@ -14,7 +14,7 @@ from jaisalab.utils.env import env_setup
 from jaisalab.envs.inventory_management import InvManagementBacklogEnv, SauteInvManagementBacklogEnv
 from jaisalab.algos.cpo import CPO
 from jaisalab.algos.trpo import SafetyTRPO
-from jaisalab.safety_constraints import InventoryConstraints
+from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 
 #garage
@@ -71,7 +71,7 @@ def cpo_backlog(ctxt=None, seed=1):
     sampler = SamplerSafe(agents=policy,
                           envs=env)
 
-    safety_constraint = InventoryConstraints(baseline=safety_baseline)
+    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
 
     algo = CPO(env_spec=env.spec,
                policy=policy,
@@ -126,7 +126,7 @@ def trpo_backlog(ctxt=None, seed=1):
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
 
-    safety_constraint = InventoryConstraints(baseline=safety_baseline)
+    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
 
     sampler = SamplerSafe(agents=policy,
                           envs=env, 
@@ -186,7 +186,7 @@ def saute_trpo_backlog(ctxt=None, seed=1):
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
 
-    safety_constraint = InventoryConstraints(baseline=safety_baseline)
+    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
 
     sampler = SamplerSafe(agents=policy,
                           envs=env, 
