@@ -7,6 +7,7 @@ import numpy as np
 
 #garage
 from garage.torch.value_functions.value_function import ValueFunction
+from garage.torch import NonLinearity
 
 #jaisalab
 from jaisalab.utils import LinearNoise
@@ -21,16 +22,32 @@ class IQNModule(nn.Module):
 
     def __init__(self,
                  input_dim,
-                 output_dim,
-                 hidden_sizes=(32, 32),
+                 action_size,
+                 N,
+                 layer_size=128,
                  *,
-                 hidden_nonlinearity=torch.tanh):
+                 hidden_w_init=nn.init.kaiming_uniform_,
+                 hidden_b_init=nn.init.zeros_,
+                 hidden_nonlinearity=torch.tanh, 
+                 layer_normalization=False):
         super().__init__()
 
-        self._input_dim = input_dim
-        self._hidden_sizes = hidden_sizes
-        self._action_dim = output_dim
-        self._hidden_nonlinearity = hidden_nonlinearity
+        self.N = N
+
+        self.conv1     = nn.Conv2d(input_dim[0], 32, 8, stride=4)
+        self.conv2     = nn.Conv2d(32, 64, 4, stride=2)
+        self.conv3     = nn.Conv2d(64, 64, 3, stride=1)
+        
+        fc_input_dims  = self.calculate_conv_output_dims(input_dim)
+        
+        self.fc1       = nn.Linear(fc_input_dims, 512)
+        self.fc2       = nn.Linear(512, action_size*self.N)
+        
+        self.phi       = nn.Linear(1, fc_input_dims, bias=False)
+        self.phi_bias  = nn.Parameter(torch.zeros(fc_input_dims))
+        
+        #self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        #self.loss      = nn.MSELoss()
 
 class IQN(ValueFunction): 
     def __init__(self, 
