@@ -16,7 +16,7 @@ from garage.np import discount_cumsum
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
 from jaisalab.utils import estimate_constraint_value, log_performance
-from jaisalab.safety_constraints import InventoryConstraints, BaseConstraint
+from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 
 import numpy as np
@@ -62,7 +62,7 @@ class PolicyGradientSafe(VPG):
                 is_saute = False):
 
         if safety_constraint is None:
-            self.safety_constraint = InventoryConstraints()
+            self.safety_constraint = SoftInventoryConstraint()
         else: 
             if isinstance(safety_constraint, BaseConstraint):
                 self.safety_constraint = safety_constraint
@@ -210,11 +210,6 @@ class PolicyGradientSafe(VPG):
             safety_returns_flat = torch.cat(filter_valids(safety_returns, valids))
             safety_advs_flat = self._compute_safety_advantage(safety_rewards, valids, safety_baselines)
 
-            #constraints
-            R = eps.env_infos["replenishment_quantity"]
-            Im1 = eps.env_infos["inventory_constraint"]
-            c =  eps.env_infos["capacity_constraint"]
-
         #compute relevant metrics prior to training for logging
         with torch.no_grad():
             policy_loss_before = self._compute_loss_with_adv(obs_flat, actions_flat, rewards_flat, advs_flat)
@@ -234,7 +229,6 @@ class PolicyGradientSafe(VPG):
                 obs_flat, returns_flat)
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
-            constraint_val = estimate_constraint_value(safety_returns_flat, masks, self.safety_discount, self._device)
 
         #log interesting metrics
         with tabular.prefix(self.policy.name):
@@ -245,12 +239,6 @@ class PolicyGradientSafe(VPG):
             tabular.record('/KLBefore', kl_before.item())
             tabular.record('/KL', kl_after.item())
             tabular.record('/Entropy', policy_entropy.mean().item())
-
-        with tabular.prefix('Constraint'):
-            pass
-            #tabular.record('/ReplenishmentQuantity', R)
-            #tabular.record('/InventoryConstraint', Im1)
-            #tabular.record('/CapacityConstraint', c)
 
         with tabular.prefix(self._value_function.name):
             tabular.record('/LossBefore', vf_loss_before.item())

@@ -6,7 +6,7 @@ from garage.torch.optimizers import OptimizerWrapper
 
 #jaisalab
 from jaisalab.optimizers import ConjugateConstraintOptimizer
-from jaisalab.safety_constraints import InventoryConstraints
+from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.algos import PolicyGradientSafe
 
 
@@ -87,7 +87,7 @@ class CPO(PolicyGradientSafe):
                 minibatch_size=64)
 
         if safety_constraint is None:
-            self.safety_constraint = InventoryConstraints()
+            self.safety_constraint = SoftInventoryConstraint()
         else: 
             self.safety_constraint = safety_constraint
 
