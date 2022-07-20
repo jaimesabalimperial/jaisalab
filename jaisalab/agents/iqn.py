@@ -1,78 +1,22 @@
 #torch
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.distributions import Normal
-from torch.distributions.independent import Independent
 
 #misc
 import numpy as np
-import math
-import abc
 
 #garage
 from garage.torch.value_functions.value_function import ValueFunction
-from garage.torch.distributions import TanhNormal
 
+#jaisalab
+from jaisalab.utils import LinearNoise
+
+def weight_init(layers):
+    for layer in layers:
+        torch.nn.init.kaiming_normal_(layer.weight, nonlinearity='relu')
 
 class IQNModule(nn.Module): 
     """Base of IQNModel.
-
-    Args:
-        input_dim (int): Input dimension of the model.
-        output_dim (int): Output dimension of the model.
-        hidden_sizes (list[int]): Output dimension of dense layer(s) for
-            the MLP for mean. For example, (32, 32) means the MLP consists
-            of two hidden layers, each with 32 hidden units.
-        hidden_nonlinearity (callable): Activation function for intermediate
-            dense layer(s). It should return a torch.Tensor. Set it to
-            None to maintain a linear activation.
-        hidden_w_init (callable): Initializer function for the weight
-            of intermediate dense layer(s). The function should return a
-            torch.Tensor.
-        hidden_b_init (callable): Initializer function for the bias
-            of intermediate dense layer(s). The function should return a
-            torch.Tensor.
-        output_nonlinearity (callable): Activation function for output dense
-            layer. It should return a torch.Tensor. Set it to None to
-            maintain a linear activation.
-        output_w_init (callable): Initializer function for the weight
-            of output dense layer(s). The function should return a
-            torch.Tensor.
-        output_b_init (callable): Initializer function for the bias
-            of output dense layer(s). The function should return a
-            torch.Tensor.
-        learn_std (bool): Is std trainable.
-        init_std (float): Initial value for std.
-            (plain value - not log or exponentiated).
-        std_hidden_sizes (list[int]): Output dimension of dense layer(s) for
-            the MLP for std. For example, (32, 32) means the MLP consists
-            of two hidden layers, each with 32 hidden units.
-        min_std (float): If not None, the std is at least the value of min_std,
-            to avoid numerical issues (plain value - not log or exponentiated).
-        max_std (float): If not None, the std is at most the value of max_std,
-            to avoid numerical issues (plain value - not log or exponentiated).
-        std_hidden_nonlinearity (callable): Nonlinearity for each hidden layer
-            in the std network.
-        std_hidden_w_init (callable):  Initializer function for the weight
-            of hidden layer (s).
-        std_hidden_b_init (callable): Initializer function for the bias
-            of intermediate dense layer(s).
-        std_output_nonlinearity (callable): Activation function for output
-            dense layer in the std network. It should return a torch.Tensor.
-            Set it to None to maintain a linear activation.
-        std_output_w_init (callable): Initializer function for the weight
-            of output dense layer(s) in the std network.
-        std_parameterization (str): How the std should be parametrized. There
-            are two options:
-            - exp: the logarithm of the std will be stored, and applied a
-               exponential transformation.
-            - softplus: the std will be computed as log(1+exp(x)).
-        layer_normalization (bool): Bool for using layer normalization or not.
-        normal_distribution_cls (torch.distribution): normal distribution class
-            to be constructed and returned by a call to forward. By default, is
-            `torch.distributions.Normal`.
-
     """
 
     def __init__(self,
@@ -80,165 +24,61 @@ class IQNModule(nn.Module):
                  output_dim,
                  hidden_sizes=(32, 32),
                  *,
-                 hidden_nonlinearity=torch.tanh,
-                 hidden_w_init=nn.init.xavier_uniform_,
-                 hidden_b_init=nn.init.zeros_,
-                 output_nonlinearity=None,
-                 output_w_init=nn.init.xavier_uniform_,
-                 output_b_init=nn.init.zeros_,
-                 learn_std=True,
-                 init_std=1.0,
-                 min_std=1e-6,
-                 max_std=None,
-                 std_hidden_sizes=(32, 32),
-                 std_hidden_nonlinearity=torch.tanh,
-                 std_hidden_w_init=nn.init.xavier_uniform_,
-                 std_hidden_b_init=nn.init.zeros_,
-                 std_output_nonlinearity=None,
-                 std_output_w_init=nn.init.xavier_uniform_,
-                 std_parameterization='exp',
-                 layer_normalization=False,
-                 normal_distribution_cls=Normal):
+                 hidden_nonlinearity=torch.tanh):
         super().__init__()
 
         self._input_dim = input_dim
         self._hidden_sizes = hidden_sizes
         self._action_dim = output_dim
-        self._learn_std = learn_std
-        self._std_hidden_sizes = std_hidden_sizes
-        self._min_std = min_std
-        self._max_std = max_std
-        self._std_hidden_nonlinearity = std_hidden_nonlinearity
-        self._std_hidden_w_init = std_hidden_w_init
-        self._std_hidden_b_init = std_hidden_b_init
-        self._std_output_nonlinearity = std_output_nonlinearity
-        self._std_output_w_init = std_output_w_init
-        self._std_parameterization = std_parameterization
         self._hidden_nonlinearity = hidden_nonlinearity
-        self._hidden_w_init = hidden_w_init
-        self._hidden_b_init = hidden_b_init
-        self._output_nonlinearity = output_nonlinearity
-        self._output_w_init = output_w_init
-        self._output_b_init = output_b_init
-        self._layer_normalization = layer_normalization
-        self._norm_dist_class = normal_distribution_cls
 
-        if self._std_parameterization not in ('exp', 'softplus'):
-            raise NotImplementedError
+class IQN(ValueFunction): 
+    def __init__(self, 
+                env_spec, 
+                layer_size,
+                n_step, 
+                N, 
+                dueling=False, 
+                noisy=False,
+                name='IQN'):
+        super().__init__(env_spec, name)
 
-        self._init_std = torch.Tensor([init_std]).log()
-        log_std = torch.Tensor([init_std] * output_dim).log()
-        if self._learn_std:
-            self._log_std = torch.nn.Parameter(log_std)
-        else:
-            self._log_std = log_std
-            self.register_buffer('log_std', self._log_std)
+        input_dim = env_spec.observation_space.flat_dim
+        action_dim = env_spec.action_space.flat_dim
 
-        self._min_std_param = self._max_std_param = None
-        if min_std is not None:
-            self._min_std_param = torch.Tensor([min_std]).log()
-            self.register_buffer('min_std_param', self._min_std_param)
-        if max_std is not None:
-            self._max_std_param = torch.Tensor([max_std]).log()
-            self.register_buffer('max_std_param', self._max_std_param)
-
-    def to(self, *args, **kwargs):
-        """Move the module to the specified device.
+        self.module = IQNModule(input_dim, action_dim)
+    
+    def compute_loss(self, obs, returns):
+        r"""Compute mean value of loss.
 
         Args:
-            *args: args to pytorch to function.
-            **kwargs: keyword args to pytorch to function.
-
-        """
-        super().to(*args, **kwargs)
-        buffers = dict(self.named_buffers())
-        if not isinstance(self._log_std, torch.nn.Parameter):
-            self._log_std = buffers['log_std']
-        self._min_std_param = buffers['min_std_param']
-        self._max_std_param = buffers['max_std_param']
-
-    @abc.abstractmethod
-    def _get_mean_and_log_std(self, *inputs):
-        pass
-
-    def forward(self, *inputs):
-        """Forward method.
-
-        Args:
-            *inputs: Input to the module.
+            obs (torch.Tensor): Observation from the environment
+                with shape :math:`(N \dot [T], O*)`.
+            returns (torch.Tensor): Acquired returns with shape :math:`(N, )`.
 
         Returns:
-            torch.distributions.independent.Independent: Independent
-                distribution.
+            torch.Tensor: Calculated negative mean scalar value of
+                objective (float).
 
         """
-        mean, log_std_uncentered = self._get_mean_and_log_std(*inputs)
+        #TODO: NEED TO IMPLEMENT HUBER LOSS
+        pass
 
-        if self._min_std_param or self._max_std_param:
-            log_std_uncentered = log_std_uncentered.clamp(
-                min=(None if self._min_std_param is None else
-                     self._min_std_param.item()),
-                max=(None if self._max_std_param is None else
-                     self._max_std_param.item()))
+    # pylint: disable=arguments-differ
+    def forward(self, obs):
+        r"""Predict value based on paths.
 
-        if self._std_parameterization == 'exp':
-            std = log_std_uncentered.exp()
-        else:
-            std = log_std_uncentered.exp().exp().add(1.).log()
-        dist = self._norm_dist_class(mean, std)
-        # This control flow is needed because if a TanhNormal distribution is
-        # wrapped by torch.distributions.Independent, then custom functions
-        # such as rsample_with_pretanh_value of the TanhNormal distribution
-        # are not accessable.
-        if not isinstance(dist, TanhNormal):
-            # Makes it so that a sample from the distribution is treated as a
-            # single sample and not dist.batch_shape samples.
-            dist = Independent(dist, 1)
+        Args:
+            obs (torch.Tensor): Observation from the environment
+                with shape :math:`(P, O*)`.
 
-        return dist
+        Returns:
+            torch.Tensor: Calculated baselines given observations with
+                shape :math:`(P, O*)`.
 
-
-
-
-class NoisyLinear(nn.Linear):
-    # Noisy Linear Layer for independent Gaussian Noise
-    def __init__(self, in_features, out_features, sigma_init=0.017, bias=True):
-        super(NoisyLinear, self).__init__(in_features, out_features, bias=bias)
-        # make the sigmas trainable:
-        self.sigma_weight = nn.Parameter(torch.full((out_features, in_features), sigma_init))
-        # not trainable tensor for the nn.Module
-        self.register_buffer("epsilon_weight", torch.zeros(out_features, in_features))
-        # extra parameter for the bias and register buffer for the bias parameter
-        if bias: 
-            self.sigma_bias = nn.Parameter(torch.full((out_features,), sigma_init))
-            self.register_buffer("epsilon_bias", torch.zeros(out_features))
-    
-        # reset parameter as initialization of the layer
-        self.reset_parameter()
-    
-    def reset_parameter(self):
         """
-        initialize the parameter of the layer and bias
-        """
-        std = math.sqrt(3/self.in_features)
-        self.weight.data.uniform_(-std, std)
-        self.bias.data.uniform_(-std, std)
-
-    
-    def forward(self, input):
-        # sample random noise in sigma weight buffer and bias buffer
-        self.epsilon_weight.normal_()
-        bias = self.bias
-        if bias is not None:
-            self.epsilon_bias.normal_()
-            bias = bias + self.sigma_bias * self.epsilon_bias
-        return F.linear(input, self.weight + self.sigma_weight * self.epsilon_weight, bias)
-
-
-def weight_init(layers):
-    for layer in layers:
-        torch.nn.init.kaiming_normal_(layer.weight, nonlinearity='relu')
-
+        #TODO: IMPLEMENT FORWARD CALL TO IQN
+        pass
 
 class IQN(nn.Module):
     def __init__(self, state_size, action_size, layer_size, n_step, seed, N, dueling=False, noisy=False, device="cuda:0"):
@@ -254,7 +94,7 @@ class IQN(nn.Module):
         self.dueling = dueling
         self.device = device
         if noisy:
-            layer = NoisyLinear
+            layer = LinearNoise
         else:
             layer = nn.Linear
 
