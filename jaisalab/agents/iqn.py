@@ -24,46 +24,71 @@ class IQNModule(nn.Module):
                  input_dim,
                  action_size,
                  N,
-                 layer_size=128,
-                 *,
-                 hidden_w_init=nn.init.kaiming_uniform_,
-                 hidden_b_init=nn.init.zeros_,
-                 hidden_nonlinearity=torch.tanh, 
-                 layer_normalization=False):
+                 layer_size=128, 
+                 n_cos=64, 
+                 *, 
+                 dueling=False, 
+                 noisy=False):
         super().__init__()
 
+        self._input_dim = input_dim
+        self._action_size = action_size
+        self._n_cos = n_cos
+        self.dueling = dueling 
+        self.noisy = noisy
         self.N = N
 
-        self.conv1     = nn.Conv2d(input_dim[0], 32, 8, stride=4)
-        self.conv2     = nn.Conv2d(32, 64, 4, stride=2)
-        self.conv3     = nn.Conv2d(64, 64, 3, stride=1)
+        layer = LinearNoise if noisy else nn.Linear #chose type of fully connected layer
         
-        fc_input_dims  = self.calculate_conv_output_dims(input_dim)
+        #define network architecture
+        self.head = nn.Linear(self._input_shape[0], layer_size) 
+        self.cos_embedding = nn.Linear(self._n_cos, layer_size)
+        self.ff_1 = layer(layer_size, layer_size)
+        self.cos_layer_out = layer_size
+
+        #dueling modification
+        if self.dueling:
+            self.advantage = layer(layer_size, action_size)
+            self.value = layer(layer_size, 1)
+        else:
+            self.ff_2 = layer(layer_size, action_size)  
         
-        self.fc1       = nn.Linear(fc_input_dims, 512)
-        self.fc2       = nn.Linear(512, action_size*self.N)
-        
-        self.phi       = nn.Linear(1, fc_input_dims, bias=False)
-        self.phi_bias  = nn.Parameter(torch.zeros(fc_input_dims))
-        
-        #self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
-        #self.loss      = nn.MSELoss()
 
 class IQN(ValueFunction): 
+    """Implicit Quantile Networks implementation. 
+    
+    Paper: https://arxiv.org/pdf/1806.06923v1.pdf
+    
+    Args: 
+        env_spec (garage.EnvSpec) - Environment specification.
+        layer_size (int) - Number of neurons in hidden layers. 
+        N (int) - Number of samples used to estimate the loss.
+    """
     def __init__(self, 
                 env_spec, 
                 layer_size,
-                n_step, 
                 N, 
                 dueling=False, 
                 noisy=False,
                 name='IQN'):
         super().__init__(env_spec, name)
 
-        input_dim = env_spec.observation_space.flat_dim
-        action_dim = env_spec.action_space.flat_dim
+        self._env_spec = env_spec 
+        self._input_dim = env_spec.observation_space.flat_dim
+        self._action_dim = env_spec.action_space.flat_dim
+        self._layer_size = layer_size
 
-        self.module = IQNModule(input_dim, action_dim)
+        self.N = N #number of samples used to estimate the loss
+        self.n_cos = 64 #cosine embedding dimension as in the paper
+
+        #define IQN module for forward pass
+        self.module = IQNModule(self._input_dim, 
+                                self._action_dim, 
+                                N=self.N, 
+                                layer_size=self._layer_size, 
+                                n_cos=self.n_cos, 
+                                dueling=dueling, 
+                                noisy=noisy)
     
     def compute_loss(self, obs, returns):
         r"""Compute mean value of loss.
