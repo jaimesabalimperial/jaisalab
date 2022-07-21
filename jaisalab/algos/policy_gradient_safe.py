@@ -15,9 +15,10 @@ from garage.np import discount_cumsum
 
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
-from jaisalab.utils import estimate_constraint_value, log_performance
+from jaisalab.utils import log_performance
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
+from jaisalab.agents import IQNValueFunction
 
 import numpy as np
 
@@ -90,6 +91,7 @@ class PolicyGradientSafe(VPG):
         self.safety_gae_lambda = safety_gae_lambda
         self.center_safety_vals = center_safety_vals
         self._is_saute = is_saute
+        self.is_iqn_vf = isinstance(value_function, IQNValueFunction)
 
         super().__init__(env_spec=env_spec,
                          policy=policy,
@@ -230,6 +232,10 @@ class PolicyGradientSafe(VPG):
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
 
+            if self.is_iqn_vf:
+                vf_means, vf_stds = self._value_function.get_mean_std(obs_flat)
+                vf_quantiles =  self._value_function.get_quantiles(obs_flat)
+
         #log interesting metrics
         with tabular.prefix(self.policy.name):
             tabular.record('/LossBefore', policy_loss_before.item())
@@ -244,6 +250,10 @@ class PolicyGradientSafe(VPG):
             tabular.record('/LossBefore', vf_loss_before.item())
             tabular.record('/LossAfter', vf_loss_after.item())
             tabular.record('/dLoss', vf_loss_before.item() - vf_loss_after.item())
+
+            if self.is_iqn_vf:
+                tabular.record('/MeanValue', vf_means.mean().item())
+                tabular.record('/StdValue', vf_stds.mean().item())
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 

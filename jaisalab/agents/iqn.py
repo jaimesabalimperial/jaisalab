@@ -17,22 +17,30 @@ def weight_init(layers):
         torch.nn.init.kaiming_normal_(layer.weight, nonlinearity='relu')
 
 class IQNModule(nn.Module): 
-    """Base module for Implicit Quantile Network implementation."""
+    """Base module for Implicit Quantile Network implementation.
+
+    Args: 
+        input_dim (tuple) - Shape of model inputs.
+        N (int) - Number of samples reparametrized from U([0,1]) to 
+                  the quantile values of the return distribution. 
+        layer_size (int) - Size of hidden layers in neural network.
+        n_cos (int) - Number of inputs to the cosine embedding layer. 
+        noisy (bool) - Wether to add Gaussian noise to the linear layers
+                of the network (Noisy Network Architecture). 
+
+    """
     def __init__(self,
                  input_dim,
-                 action_size,
                  N,
                  layer_size=128, 
                  n_cos=64, 
                  *, 
-                 dueling=False, 
                  noisy=False):
         super().__init__()
 
         self._input_dim = input_dim
-        self._action_size = action_size
+        self._output_dim = 1
         self._n_cos = n_cos
-        self.dueling = dueling 
         self.noisy = noisy
         self.N = N
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -44,13 +52,7 @@ class IQNModule(nn.Module):
         self.cos_embedding = nn.Linear(self._n_cos, layer_size)
         self.fc1 = layer(layer_size, layer_size)
         self.cos_layer_out = layer_size
-
-        #dueling modification
-        if self.dueling:
-            self.advantage = layer(layer_size, action_size)
-            self.value = layer(layer_size, 1)
-        else:
-            self.fc2 = layer(layer_size, action_size)  
+        self.fc2 = layer(layer_size, self._output_dim)  
     
     def get_cosine_values(self, batch_size):
         """Calculates cosine values for sample embedding."""
@@ -59,13 +61,12 @@ class IQNModule(nn.Module):
 
         return cos_values, samples
 
-    def forward(self, inputs):
+    def forward(self, obs):
         """Quantile calculation based on the number of samples
-        used in estimating the loss N (tau in paper).
-        """
-        batch_size = inputs.shape[0]
+        used in estimating the loss N (tau in paper)."""
+        batch_size = obs.shape[0]
 
-        x = torch.relu(self.head(inputs))
+        x = torch.relu(self.head(obs))
         cos_values, samples = self.calc_cos(batch_size, self.N) # cos shape (batch, num_tau, layer_size)
         cos_values = cos_values.view(batch_size*self.N, self._n_cos)
         cos_x = torch.relu(self.cos_embedding(cos_values)).view(batch_size, self.N, self.cos_layer_out) # (batch, n_tau, layer)
@@ -74,31 +75,48 @@ class IQNModule(nn.Module):
         x = (x.unsqueeze(1)*cos_x).view(batch_size*self.N, self.cos_layer_out)
         
         x = torch.relu(self.fc1(x))
-        if self.dueling:
-            advantage = self.advantage(x)
-            value = self.value(x)
-            out = value + advantage - advantage.mean(dim=1, keepdim=True)
-        else:
-            out = self.fc2(x)
+        out = self.fc2(x)
         
-        return out.view(batch_size, self.N, self.action_size), samples
+        return out.view(batch_size, self.N, self._output_dim)
     
-    def get_qvalues(self, inputs):
-        quantiles, _ = self.forward(inputs, self.N)
-        actions = quantiles.mean(dim=1)
-        return actions  
+    def get_quantiles(self, obs):
+        """Summary of quantiles for batch of inputs."""
+        with torch.no_grad():
+            quantiles, _ = self.forward(obs)
+        batch_quantiles = quantiles.mean(dim=0)
 
+        return batch_quantiles
+
+    def get_mean_std(self, obs):
+        """Mean value and standard deviation of quantiles 
+        for given inputs."""
+        with torch.no_grad():
+            quantiles, _ = self.forward(obs)
+
+        mean_values = quantiles.mean(dim=1)
+        std_values = quantiles.std(dim=1)
+
+        return mean_values, std_values
+    
 
 class IQNValueFunction(ValueFunction): 
-    """Implicit Quantile Network implementation. 
+    """Implicit Quantile Network implementation. A slight modification 
+    is made in that we are learning the value function rather than the 
+    Q-function as they do in the paper. We also use the mean of the log 
+    probability of the observed returns as per the current return 
+    distribution as the loss rather than the Huber loss (which requires
+    learning in an off-policy manner). This is done to allow for 
+    compatibility with on-policy policy gradient methods such as CPO, 
+    TRPO, etc. 
     
     Paper: https://arxiv.org/pdf/1806.06923v1.pdf
     
     Args: 
         env_spec (garage.EnvSpec) - Environment specification.
-        layer_size (int) - Number of neurons in hidden layers. 
-        N (int) - Number of samples used to estimate the loss.
-        dueling (bool) - Wether to implement the Dueling Network Architecture. 
+        N (int) - Number of samples reparametrized from U([0,1]) to 
+                  the quantile values of the return distribution. 
+        layer_size (int) - Size of hidden layers in neural network.
+        n_cos (int) - Number of inputs to the cosine embedding layer. 
         noisy (bool) - Wether to add Gaussian noise to the linear layers
                        of the network (Noisy Network Architecture). 
     """
@@ -129,7 +147,7 @@ class IQNValueFunction(ValueFunction):
                                 noisy=noisy)
     
     def compute_loss(self, obs, returns):
-        r"""Compute mean value of loss.
+        r"""Compute Huber loss using observations and returns.
 
         Args:
             obs (torch.Tensor): Observation from the environment
@@ -141,7 +159,15 @@ class IQNValueFunction(ValueFunction):
                 objective (float).
 
         """
-        #TODO: NEED TO IMPLEMENT HUBER LOSS
+        dist = self.module(obs)
+        ll = dist.log_prob(returns.reshape(-1, 1))
+        loss = -ll.mean()
+        return loss
+    
+    def get_episode_quantiles(self, obs):
+        pass
+
+    def get_mean_std(self, obs):
         pass
 
     # pylint: disable=arguments-differ
@@ -157,5 +183,5 @@ class IQNValueFunction(ValueFunction):
                 shape :math:`(P, O*)`.
 
         """
-        return self.module(obs)
+        return self.module.get_mean_std(obs)[0]
 
