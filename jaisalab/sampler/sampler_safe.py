@@ -11,7 +11,7 @@ from garage.torch.value_functions import GaussianMLPValueFunction
 
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
-from jaisalab.safety_constraints import InventoryConstraints, BaseConstraint
+from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab import SafeEpisodeBatch
 
 
@@ -69,7 +69,7 @@ class SamplerSafe(LocalSampler):
                                         hidden_sizes=(64, 64),
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
-                worker_args['safety_constraint'] = InventoryConstraints(baseline=safety_baseline)
+                worker_args['safety_constraint'] = SoftInventoryConstraint(baseline=safety_baseline)
             else: 
                 raise AttributeError("Please specify a safety constraint for the environment")
                 

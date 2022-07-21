@@ -12,6 +12,7 @@ from garage.torch.algos import VPG
 from garage.torch import compute_advantages, filter_valids
 from garage.torch._functions import np_to_torch, zero_optim_grads
 from garage.np import discount_cumsum
+from garage.torch.value_functions import GaussianMLPValueFunction
 
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
@@ -91,7 +92,7 @@ class PolicyGradientSafe(VPG):
         self.safety_gae_lambda = safety_gae_lambda
         self.center_safety_vals = center_safety_vals
         self._is_saute = is_saute
-        self.is_iqn_vf = isinstance(value_function, IQNValueFunction)
+        self.is_distributional_vf = isinstance(value_function, (IQNValueFunction, GaussianMLPValueFunction))
 
         super().__init__(env_spec=env_spec,
                          policy=policy,
@@ -162,6 +163,12 @@ class PolicyGradientSafe(VPG):
         loss_grad = torch.cat([grad.view(-1) for grad in grads]).detach() #b
 
         return loss_grad
+    
+    def get_vf_mean_std(self, obs):
+        with torch.no_grad():
+            dist = self._value_function.module(obs)
+        
+        return dist.mean, dist.stddev
         
     def _train_once(self, itr, eps):
         """Train the algorithm once.
@@ -232,9 +239,8 @@ class PolicyGradientSafe(VPG):
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
 
-            if self.is_iqn_vf:
-                vf_means, vf_stds = self._value_function.get_mean_std(obs_flat)
-                vf_quantiles =  self._value_function.get_quantiles(obs_flat)
+            if self.is_distributional_vf:
+                vf_mean, vf_stddev = self.get_vf_mean_std(obs_flat)
 
         #log interesting metrics
         with tabular.prefix(self.policy.name):
@@ -251,9 +257,9 @@ class PolicyGradientSafe(VPG):
             tabular.record('/LossAfter', vf_loss_after.item())
             tabular.record('/dLoss', vf_loss_before.item() - vf_loss_after.item())
 
-            if self.is_iqn_vf:
-                tabular.record('/MeanValue', vf_means.mean().item())
-                tabular.record('/StdValue', vf_stds.mean().item())
+            if self.is_distributional_vf:
+                tabular.record('/MeanValue', vf_mean.mean().item())
+                tabular.record('/StdValue', vf_stddev.mean().item())
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 
