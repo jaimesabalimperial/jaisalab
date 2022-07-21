@@ -6,6 +6,7 @@ Author: Jaime Sabal Bermúdez
 """
 import torch
 from dowel import tabular
+import copy
 
 from garage.torch._functions import zero_optim_grads
 from garage.torch.algos import VPG
@@ -94,6 +95,10 @@ class PolicyGradientSafe(VPG):
         self._is_saute = is_saute
         self.is_distributional_vf = isinstance(value_function, (IQNValueFunction, GaussianMLPValueFunction))
 
+        #things needed to optimize vf in case of IQN (trying to imitate off-policy update)
+        self._target_vf = copy.deepcopy(value_function)
+        
+
         self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
                                            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 
                                            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
@@ -170,7 +175,8 @@ class PolicyGradientSafe(VPG):
     
     def get_vf_mean_std(self, obs):
         with torch.no_grad():
-            dist = self._value_function.module(obs)
+            if isinstance(self._value_function, GaussianMLPValueFunction):
+                dist = self._value_function.module(obs)
         
         return dist.mean, dist.stddev
         
@@ -297,6 +303,17 @@ class PolicyGradientSafe(VPG):
             self._train_value_function(*dataset)
         for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
             self.safety_constraint._train_safety_baseline(*dataset)
+
+    def _train_value_function(self, obs, returns):
+        # pylint: disable=protected-access
+        zero_optim_grads(self._vf_optimizer._optimizer)
+
+        if isinstance(self._value_function, IQNValueFunction):
+            pass
+        else: 
+            loss = self._value_function.compute_loss(obs, returns)
+            loss.backward()
+            self._vf_optimizer.step()
 
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages, masks):
