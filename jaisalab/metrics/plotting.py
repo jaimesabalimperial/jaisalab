@@ -1,5 +1,4 @@
 #misc
-from multiprocessing.sharedctypes import Value
 import os 
 import random
 import numpy as np 
@@ -7,6 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import csv
 import warnings
+import matplotlib.animation as ani
 
 #jaisalab
 from jaisalab.utils import get_time_stamp_as_string
@@ -75,7 +75,7 @@ class Plotter():
         self._plot_color = random.choice(self._colors)
         self._plot_flags = {1:'returns', 2:'kl', 
                             3:'constraint_vals', 4:'entropy',
-                            5:'losses', 6:'costs'}
+                            5:'losses', 6:'costs', 7:'dist_progress'}
 
     def _get_data_dict(self, csvreader): 
         #get metric names
@@ -143,12 +143,17 @@ class Plotter():
                 data_dict[metric] = np.array(values)
         return data_dict
 
-    def _savefig(self,flag):
+    def _savefig(self,flag,animator=None):
         if self.savefig:
             try:
                 if 'plots' not in os.listdir():
                     os.mkdir('plots/')
-                plt.savefig(f'plots/{self._savefig_name}_{self._plot_flags[flag]}')
+                
+                if animator is not None: 
+                    animator.save(f'plots/{self._savefig_name}_{self._plot_flags[flag]}.gif')
+                else: 
+                    plt.savefig(f'plots/{self._savefig_name}_{self._plot_flags[flag]}')
+
             except FileExistsError:
                 pass
     
@@ -170,7 +175,26 @@ class Plotter():
             else: 
                 return x_array, y_array
         
-    
+    def _get_distribution_data(self):
+        if isinstance(self.fdir, (list, tuple)):
+            raise TypeError('Distribution progression can only be plotted for individual experiments.')
+
+        mean_column = None
+        std_column = None
+        for col in self.data.keys():
+            if col[-9:] == 'MeanValue':
+                mean_column = col 
+            if col[-8:] == 'StdValue':
+                std_column = col 
+        
+        if mean_column is None or std_column is None: 
+            raise KeyError('Mean and/or standard deviation data not found.')
+        
+        mean_returns_array = self.data[mean_column]
+        std_returns_array = self.data[std_column]
+        
+        return mean_returns_array, std_returns_array
+
     def _plot(self, x_array, y_array, ylabel, 
               std=None, title=None):
         fig = plt.figure()
@@ -220,6 +244,7 @@ class Plotter():
         self._savefig(flag=6)
 
     def plot_constraint_vals(self):
+        """"""
         y_column = 'Evaluation/AverageDiscountedSafetyReturn'
         ylabel = 'Constraint Value'
 
@@ -228,10 +253,39 @@ class Plotter():
         self._plot(x_array, y_array, ylabel)
         self._savefig(flag=3)
     
+    def _gaussian(self, mean, std):
+        """"""
+        def normal(x):
+            return (1/std*np.sqrt(2*np.pi))*np.exp(-(x - mean)**2 / (2*std**2))
+        return normal
+
+    def plot_distribution_progression(self, eps=1.0, num_points=300, interval=200):
+        """"""
+        mean_returns_array, std_returns_array = self._get_distribution_data()
+        gaussians = [self._gaussian(mean, std) for mean, std in zip(mean_returns_array, std_returns_array)]
+        min_x = min([mean - eps*std for mean, std in zip(mean_returns_array, std_returns_array)])
+        max_x = max([mean + eps*std for mean, std in zip(mean_returns_array, std_returns_array)])
+
+        x_array = np.linspace(min_x, max_x, num=num_points)
+        y_arrays = [gaussian(x_array) for gaussian in gaussians]
+
+        fig = plt.figure()
+        def dist_progress(i):
+            fig.clear()
+            plt.ylim(0,1)
+            p = plt.plot(x_array, y_arrays[i])
+
+        plt.xlabel('Returns')
+        plt.ylabel('Probability')
+        animator = ani.FuncAnimation(fig, dist_progress, interval=interval)
+        self._savefig(flag=7, animator=animator)
+
     def plot_kl(self):
         pass
+
     def plot_losses(self):
         pass
+
     def plot_entropy(self):
         pass
 

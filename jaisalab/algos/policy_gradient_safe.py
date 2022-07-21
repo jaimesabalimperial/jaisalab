@@ -94,6 +94,10 @@ class PolicyGradientSafe(VPG):
         self._is_saute = is_saute
         self.is_distributional_vf = isinstance(value_function, (IQNValueFunction, GaussianMLPValueFunction))
 
+        self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
+                                           0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 
+                                           0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
+
         super().__init__(env_spec=env_spec,
                          policy=policy,
                          value_function=value_function,
@@ -240,7 +244,7 @@ class PolicyGradientSafe(VPG):
             policy_entropy = self._compute_policy_entropy(obs)
 
             if self.is_distributional_vf:
-                vf_mean, vf_stddev = self.get_vf_mean_std(obs_flat)
+                vf_mean, vf_stddev = self.get_vf_mean_std(self.initial_state)
 
         #log interesting metrics
         with tabular.prefix(self.policy.name):
@@ -258,8 +262,8 @@ class PolicyGradientSafe(VPG):
             tabular.record('/dLoss', vf_loss_before.item() - vf_loss_after.item())
 
             if self.is_distributional_vf:
-                tabular.record('/MeanValue', vf_mean.mean().item())
-                tabular.record('/StdValue', vf_stddev.mean().item())
+                tabular.record('/MeanValue', vf_mean.item())
+                tabular.record('/StdValue', vf_stddev.item())
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 

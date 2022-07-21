@@ -159,6 +159,10 @@ class IQNValueFunction(ValueFunction):
                 objective (float).
 
         """
+        #TODO: Need to change this so that it is compatible with how module is defined
+        # i.e. create a function that calculates the log probability of obtaining 
+        # observed returns from the current return distribution. 
+
         dist = self.module(obs)
         ll = dist.log_prob(returns.reshape(-1, 1))
         loss = -ll.mean()
