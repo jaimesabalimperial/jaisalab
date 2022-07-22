@@ -16,6 +16,7 @@ from jaisalab.algos.cpo import CPO
 from jaisalab.algos.trpo import SafetyTRPO
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
+from jaisalab.value_functions import IQNValueFunction
 
 #garage
 import garage
@@ -201,6 +202,63 @@ def saute_trpo_backlog(ctxt=None, seed=1):
                       discount=0.99,
                       center_adv=False, 
                       is_saute=True)
+
+    trainer.setup(algo, env)
+    trainer.train(n_epochs=400, batch_size=1024)
+
+
+@wrap_experiment
+def iqn_trpo(ctxt=None, seed=1):
+    """Train TRPO with InvertedDoublePendulum-v2 environment.
+
+    Args:
+        ctxt (garage.experiment.ExperimentContext): The experiment
+            configuration used by Trainer to create the snapshotter.
+        seed (int): Used to seed the random number generator to produce
+            determinism.
+
+    """
+    # set up the dowel logger
+    log_dir = os.path.join(os.getcwd(), 'data')
+    ctxt = garage.experiment.SnapshotConfig(snapshot_dir=log_dir,
+                                            snapshot_mode='last',
+                                            snapshot_gap=1)
+
+    # log to stdout
+    logger.add_output(StdOutput())
+
+    #set seed and define environment
+    set_seed(seed)
+    env = InvManagementBacklogEnv()
+    env = env_setup(env) #set up environment
+
+    trainer = Trainer(ctxt)
+
+    policy = GaussianMLPPolicy(env.spec,
+                               hidden_sizes=[32, 32],
+                               hidden_nonlinearity=torch.tanh,
+                               output_nonlinearity=None)
+
+    value_function = IQNValueFunction(env_spec=env.spec,
+                                      layer_size=128)
+    
+    safety_baseline = IQNValueFunction(env_spec=env.spec,
+                                       layer_size=128)
+
+    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
+
+    sampler = SamplerSafe(agents=policy,
+                          envs=env, 
+                          max_episode_length=env.spec.max_episode_length, 
+                          worker_args={'safety_constraint': safety_constraint})
+
+    algo = SafetyTRPO(env_spec=env.spec,
+                      policy=policy,
+                      value_function=value_function,
+                      sampler=sampler,
+                      safety_constraint=safety_constraint,
+                      discount=0.99,
+                      center_adv=False)
 
     trainer.setup(algo, env)
     trainer.train(n_epochs=400, batch_size=1024)

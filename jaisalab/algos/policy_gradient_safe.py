@@ -20,7 +20,7 @@ from jaisalab.sampler.safe_worker import SafeWorker
 from jaisalab.utils import log_performance
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
-from jaisalab.agents import IQNValueFunction
+from jaisalab.value_functions import IQNValueFunction
 
 import numpy as np
 
@@ -97,7 +97,7 @@ class PolicyGradientSafe(VPG):
 
         #things needed to optimize vf in case of IQN (trying to imitate off-policy update)
         self._target_vf = copy.deepcopy(value_function)
-        
+
 
         self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
                                            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 
@@ -177,15 +177,19 @@ class PolicyGradientSafe(VPG):
         with torch.no_grad():
             if isinstance(self._value_function, GaussianMLPValueFunction):
                 dist = self._value_function.module(obs)
+                mean = dist.mean
+                stddev = dist.stddev
+            elif isinstance(self._value_function, IQNValueFunction):
+                mean, stddev = self._value_function.get_mean_std(obs)
         
-        return dist.mean, dist.stddev
+        return mean, stddev
         
     def _train_once(self, itr, eps):
         """Train the algorithm once.
 
         Args:
             itr (int): Iteration number.
-            eps (EpisodeBatch): A batch of collected paths.
+            eps (SafeEpisodeBatch): A batch of collected paths.
 
         Returns:
             numpy.float64: Calculated mean value of undiscounted returns.
@@ -249,8 +253,11 @@ class PolicyGradientSafe(VPG):
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
 
-            if self.is_distributional_vf:
-                vf_mean, vf_stddev = self.get_vf_mean_std(self.initial_state)
+        #distributional RL
+        vf_mean, vf_stddev = self.get_vf_mean_std(self.initial_state)
+        
+        if isinstance(self._value_function, IQNValueFunction):
+            quantiles = self._value_function.get_quantiles(self.initial_state)
 
         #log interesting metrics
         with tabular.prefix(self.policy.name):
@@ -266,10 +273,11 @@ class PolicyGradientSafe(VPG):
             tabular.record('/LossBefore', vf_loss_before.item())
             tabular.record('/LossAfter', vf_loss_after.item())
             tabular.record('/dLoss', vf_loss_before.item() - vf_loss_after.item())
+            tabular.record('/MeanValue', vf_mean.item())
+            tabular.record('/StdValue', vf_stddev.item())
 
-            if self.is_distributional_vf:
-                tabular.record('/MeanValue', vf_mean.item())
-                tabular.record('/StdValue', vf_stddev.item())
+            if isinstance(self._value_function, IQNValueFunction):
+                tabular.record('/QuantileValues', quantiles.to_list())
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 
@@ -304,16 +312,6 @@ class PolicyGradientSafe(VPG):
         for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
             self.safety_constraint._train_safety_baseline(*dataset)
 
-    def _train_value_function(self, obs, returns):
-        # pylint: disable=protected-access
-        zero_optim_grads(self._vf_optimizer._optimizer)
-
-        if isinstance(self._value_function, IQNValueFunction):
-            pass
-        else: 
-            loss = self._value_function.compute_loss(obs, returns)
-            loss.backward()
-            self._vf_optimizer.step()
 
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages, masks):

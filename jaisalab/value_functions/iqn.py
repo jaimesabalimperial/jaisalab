@@ -4,6 +4,8 @@ import torch.nn as nn
 
 #misc
 import numpy as np
+from numbers import Number
+import math
 
 #garage
 from garage.torch.value_functions.value_function import ValueFunction
@@ -39,20 +41,21 @@ class IQNModule(nn.Module):
         super().__init__()
 
         self._input_dim = input_dim
-        self._output_dim = 1
         self._n_cos = n_cos
         self.noisy = noisy
         self.N = N
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        # Starting from 0 as in the paper 
+        self.pis = torch.FloatTensor([np.pi*i for i in range(1,self._n_cos+1)]).view(1,1,self._n_cos).to(self.device) 
 
-        layer = LinearNoise if noisy else nn.Linear #chose type of fully connected layer
+        layer = LinearNoise if noisy else nn.Linear #choose type of fully connected layer
         
         #define network architecture
-        self.head = nn.Linear(self._input_shape[0], layer_size) 
+        self.head = nn.Linear(self._input_dim, layer_size) 
         self.cos_embedding = nn.Linear(self._n_cos, layer_size)
         self.fc1 = layer(layer_size, layer_size)
         self.cos_layer_out = layer_size
-        self.fc2 = layer(layer_size, self._output_dim)  
+        self.fc2 = layer(layer_size, 1) #output one value for a given input 
     
     def get_cosine_values(self, batch_size):
         """Calculates cosine values for sample embedding."""
@@ -67,17 +70,19 @@ class IQNModule(nn.Module):
         batch_size = obs.shape[0]
 
         x = torch.relu(self.head(obs))
-        cos_values, samples = self.calc_cos(batch_size, self.N) # cos shape (batch, num_tau, layer_size)
+        cos_values, samples = self.get_cosine_values(batch_size) # cos shape (batch, num_tau, layer_size)
         cos_values = cos_values.view(batch_size*self.N, self._n_cos)
         cos_x = torch.relu(self.cos_embedding(cos_values)).view(batch_size, self.N, self.cos_layer_out) # (batch, n_tau, layer)
         
         # x has shape (batch, layer_size) for multiplication –> reshape to (batch, 1, layer)
+        print(x.unsqueeze(1).shape)
+        print(cos_x.shape)
         x = (x.unsqueeze(1)*cos_x).view(batch_size*self.N, self.cos_layer_out)
         
         x = torch.relu(self.fc1(x))
         out = self.fc2(x)
         
-        return out.view(batch_size, self.N, self._output_dim)
+        return out.view(batch_size, self.N, self._output_dim), samples
     
     def get_quantiles(self, obs):
         """Summary of quantiles for batch of inputs."""
@@ -123,15 +128,13 @@ class IQNValueFunction(ValueFunction):
     def __init__(self, 
                 env_spec, 
                 layer_size,
-                N, 
-                dueling=False, 
+                N=50, 
                 noisy=False,
                 name='IQN'):
         super().__init__(env_spec, name)
 
         self._env_spec = env_spec 
         self._input_dim = env_spec.observation_space.flat_dim
-        self._action_dim = env_spec.action_space.flat_dim
         self._layer_size = layer_size
 
         self.N = N #number of samples used to estimate the loss
@@ -139,15 +142,28 @@ class IQNValueFunction(ValueFunction):
 
         #define IQN module for forward pass
         self.module = IQNModule(input_dim=self._input_dim, 
-                                action_dim=self._action_dim, 
                                 N=self.N, 
                                 layer_size=self._layer_size, 
                                 n_cos=self.n_cos, 
-                                dueling=dueling, 
                                 noisy=noisy)
+
+    def get_quantiles(self, obs):
+        """Get the mean value of the quantiles for a batch of observations."""
+        return self.module.get_quantiles(obs)
+
+    def get_mean_std(self, obs):
+        """Retrieve mean and standard deviation of return distribution"""
+        return self.module.get_mean_std(obs)
+    
+    def _log_prob(self, mean, std, value):
+        """Log probability of obtaining a value given a distribution."""
+        # compute the variance
+        var = (std ** 2)
+        log_scale = math.log(std) if isinstance(std, Number) else std.log()
+        return -((value - mean) ** 2) / (2 * var) - log_scale - math.log(math.sqrt(2 * math.pi))
     
     def compute_loss(self, obs, returns):
-        r"""Compute Huber loss using observations and returns.
+        r"""Compute mean loss using observations and returns.
 
         Args:
             obs (torch.Tensor): Observation from the environment
@@ -159,20 +175,10 @@ class IQNValueFunction(ValueFunction):
                 objective (float).
 
         """
-        #TODO: Need to change this so that it is compatible with how module is defined
-        # i.e. create a function that calculates the log probability of obtaining 
-        # observed returns from the current return distribution. 
-
-        dist = self.module(obs)
-        ll = dist.log_prob(returns.reshape(-1, 1))
+        mean, std = self.get_mean_std(obs)
+        ll = self._log_prob(mean, std, returns.reshape(-1, 1))
         loss = -ll.mean()
         return loss
-    
-    def get_episode_quantiles(self, obs):
-        pass
-
-    def get_mean_std(self, obs):
-        pass
 
     # pylint: disable=arguments-differ
     def forward(self, obs):
@@ -187,5 +193,5 @@ class IQNValueFunction(ValueFunction):
                 shape :math:`(P, O*)`.
 
         """
-        return self.module.get_mean_std(obs)[0]
+        return self.get_mean_std(obs)[0]
 
