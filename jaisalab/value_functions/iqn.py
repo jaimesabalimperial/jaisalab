@@ -1,4 +1,5 @@
 #torch
+from logging import exception
 import torch
 import torch.nn as nn
 
@@ -33,6 +34,7 @@ class IQNModule(nn.Module):
     """
     def __init__(self,
                  input_dim,
+                 episode_length,
                  N,
                  layer_size=128, 
                  n_cos=64, 
@@ -41,12 +43,15 @@ class IQNModule(nn.Module):
         super().__init__()
 
         self._input_dim = input_dim
+        self._output_dim = 1
         self._n_cos = n_cos
         self.noisy = noisy
         self.N = N
+        self.episode_length = episode_length
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         # Starting from 0 as in the paper 
-        self.pis = torch.FloatTensor([np.pi*i for i in range(1,self._n_cos+1)]).view(1,1,self._n_cos).to(self.device) 
+        self.pis = torch.FloatTensor([[np.pi*i for i in range(1,self._n_cos+1)] \
+                                       for _ in range(episode_length)]).view(1,episode_length,self._n_cos).to(self.device) 
 
         layer = LinearNoise if noisy else nn.Linear #choose type of fully connected layer
         
@@ -55,12 +60,12 @@ class IQNModule(nn.Module):
         self.cos_embedding = nn.Linear(self._n_cos, layer_size)
         self.fc1 = layer(layer_size, layer_size)
         self.cos_layer_out = layer_size
-        self.fc2 = layer(layer_size, 1) #output one value for a given input 
+        self.fc2 = layer(layer_size, self._output_dim) #output one value for a given input 
     
     def get_cosine_values(self, batch_size):
         """Calculates cosine values for sample embedding."""
-        samples = torch.rand(batch_size, self.N).unsqueeze(-1).to(self.device) #(batch_size, n_tau, 1)  .to(self.device)
-        cos_values = torch.cos(samples*self.pis)
+        samples = torch.rand(batch_size, self.episode_length, self.N).unsqueeze(-1).to(self.device) 
+        cos_values = torch.cos(samples*self.pis.unsqueeze(2))
 
         return cos_values, samples
 
@@ -71,18 +76,16 @@ class IQNModule(nn.Module):
 
         x = torch.relu(self.head(obs))
         cos_values, samples = self.get_cosine_values(batch_size) # cos shape (batch, num_tau, layer_size)
-        cos_values = cos_values.view(batch_size*self.N, self._n_cos)
-        cos_x = torch.relu(self.cos_embedding(cos_values)).view(batch_size, self.N, self.cos_layer_out) # (batch, n_tau, layer)
+        cos_values = cos_values.view(batch_size*self.N, self.episode_length, self._n_cos)
+        cos_x = torch.relu(self.cos_embedding(cos_values)).view(batch_size, self.N, self.episode_length, self.cos_layer_out) # (batch, n_tau, layer)
         
         # x has shape (batch, layer_size) for multiplication –> reshape to (batch, 1, layer)
-        print(x.unsqueeze(1).shape)
-        print(cos_x.shape)
-        x = (x.unsqueeze(1)*cos_x).view(batch_size*self.N, self.cos_layer_out)
-        
+        x = (x.unsqueeze(1)*cos_x).view(batch_size*self.N, self.episode_length, self.cos_layer_out)
+
         x = torch.relu(self.fc1(x))
         out = self.fc2(x)
         
-        return out.view(batch_size, self.N, self._output_dim), samples
+        return out.view(batch_size, self.episode_length, self.N, self._output_dim), samples
     
     def get_quantiles(self, obs):
         """Summary of quantiles for batch of inputs."""
@@ -136,12 +139,14 @@ class IQNValueFunction(ValueFunction):
         self._env_spec = env_spec 
         self._input_dim = env_spec.observation_space.flat_dim
         self._layer_size = layer_size
+        self._episode_length = env_spec.max_episode_length
 
         self.N = N #number of samples used to estimate the loss
         self.n_cos = 64 #cosine embedding dimension as in the paper
 
         #define IQN module for forward pass
         self.module = IQNModule(input_dim=self._input_dim, 
+                                episode_length=self._episode_length,
                                 N=self.N, 
                                 layer_size=self._layer_size, 
                                 n_cos=self.n_cos, 
@@ -173,7 +178,6 @@ class IQNValueFunction(ValueFunction):
         Returns:
             torch.Tensor: Calculated negative mean scalar value of
                 objective (float).
-
         """
         mean, std = self.get_mean_std(obs)
         ll = self._log_prob(mean, std, returns.reshape(-1, 1))
@@ -193,5 +197,6 @@ class IQNValueFunction(ValueFunction):
                 shape :math:`(P, O*)`.
 
         """
-        return self.get_mean_std(obs)[0]
+        quantiles, _ = self.module(obs)
+        return quantiles.mean(dim=2).flatten(-2)
 
