@@ -84,8 +84,9 @@ class IQNModule(nn.Module):
 
         x = torch.relu(self.fc1(x))
         out = self.fc2(x)
+        out = out.view(batch_size, self.episode_length, self.N, self._output_dim)
         
-        return out.view(batch_size, self.episode_length, self.N, self._output_dim), samples
+        return out, samples
     
     def get_quantiles(self, obs):
         """Summary of quantiles for batch of inputs."""
@@ -98,11 +99,9 @@ class IQNModule(nn.Module):
     def get_mean_std(self, obs):
         """Mean value and standard deviation of quantiles 
         for given inputs."""
-        with torch.no_grad():
-            quantiles, _ = self.forward(obs)
-
-        mean_values = quantiles.mean(dim=1)
-        std_values = quantiles.std(dim=1)
+        quantiles, _ = self.forward(obs)
+        mean_values = quantiles.mean(dim=2).flatten(-2)
+        std_values = quantiles.std(dim=2).flatten(-2)
 
         return mean_values, std_values
     
@@ -180,7 +179,9 @@ class IQNValueFunction(ValueFunction):
                 objective (float).
         """
         mean, std = self.get_mean_std(obs)
-        ll = self._log_prob(mean, std, returns.reshape(-1, 1))
+        mean = torch.flatten(mean)
+        std = torch.flatten(std)
+        ll = self._log_prob(mean, std, returns.reshape(-1,1))
         loss = -ll.mean()
         return loss
 

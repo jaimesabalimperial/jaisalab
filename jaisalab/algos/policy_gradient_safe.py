@@ -65,7 +65,12 @@ class PolicyGradientSafe(VPG):
                 is_saute = False):
 
         if safety_constraint is None:
-            self.safety_constraint = SoftInventoryConstraint()
+            safety_baseline = GaussianMLPValueFunction(env_spec=env_spec,
+                                                     hidden_sizes=(64, 64),
+                                                     hidden_nonlinearity=torch.tanh,
+                                                     output_nonlinearity=None)
+
+            self.safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
         else: 
             if isinstance(safety_constraint, BaseConstraint):
                 self.safety_constraint = safety_constraint
@@ -181,6 +186,9 @@ class PolicyGradientSafe(VPG):
                 stddev = dist.stddev
             elif isinstance(self._value_function, IQNValueFunction):
                 mean, stddev = self._value_function.get_mean_std(obs)
+                mean = torch.flatten(mean).mean()
+                stddev = torch.flatten(stddev).mean()
+
         
         return mean, stddev
         
@@ -236,28 +244,46 @@ class PolicyGradientSafe(VPG):
         #compute relevant metrics prior to training for logging
         with torch.no_grad():
             policy_loss_before = self._compute_loss_with_adv(obs_flat, actions_flat, rewards_flat, advs_flat)
-            vf_loss_before = self._value_function.compute_loss(obs_flat, returns_flat)
+
+            #loss function is different for different value functions
+            if isinstance(self._value_function, IQNValueFunction):
+                vf_loss_before = self._value_function.compute_loss(obs, returns)
+                iqn_obs = obs
+                iqn_returns = returns
+                iqn_safety_returns = safety_returns
+            else: 
+                vf_loss_before = self._value_function.compute_loss(obs_flat, returns_flat)
+                iqn_obs = None
+                iqn_returns = None
+                iqn_safety_returns = None
+
             kl_before = self._compute_kl_constraint(obs)
 
         #train policy, value function, safety baseline
         self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
                     advs_flat, safety_rewards_flat, safety_returns_flat,
-                    safety_advs_flat, masks)
+                    safety_advs_flat, masks, iqn_obs=iqn_obs, 
+                    iqn_returns=iqn_returns, iqn_safety_returns=iqn_safety_returns)
 
         #compute relevant metrics after training
         with torch.no_grad():
             policy_loss_after = self._compute_loss_with_adv(
                 obs_flat, actions_flat, rewards_flat, advs_flat)
-            vf_loss_after = self._value_function.compute_loss(
-                obs_flat, returns_flat)
+
+            #loss function is different for different value functions
+            if isinstance(self._value_function, IQNValueFunction):
+                vf_loss_after = self._value_function.compute_loss(obs, returns)
+            else: 
+                vf_loss_after = self._value_function.compute_loss(obs_flat, returns_flat)
+
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
 
         #distributional RL
-        vf_mean, vf_stddev = self.get_vf_mean_std(self.initial_state)
+        vf_mean, vf_stddev = self.get_vf_mean_std(obs)
         
         if isinstance(self._value_function, IQNValueFunction):
-            quantiles = self._value_function.get_quantiles(self.initial_state)
+            quantiles = self._value_function.get_quantiles(obs)
 
         #log interesting metrics
         with tabular.prefix(self.policy.name):
@@ -276,8 +302,8 @@ class PolicyGradientSafe(VPG):
             tabular.record('/MeanValue', vf_mean.item())
             tabular.record('/StdValue', vf_stddev.item())
 
-            if isinstance(self._value_function, IQNValueFunction):
-                tabular.record('/QuantileValues', quantiles.to_list())
+            #if isinstance(self._value_function, IQNValueFunction):
+            #    tabular.record('/QuantileValues', quantiles.to_list())
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 
@@ -290,7 +316,8 @@ class PolicyGradientSafe(VPG):
     
 
     def _train(self, obs, actions, rewards, returns, advs, 
-               safety_rewards, safety_returns, safety_advs, masks):
+               safety_rewards, safety_returns, safety_advs, masks, 
+               iqn_obs, iqn_returns, iqn_safety_returns):
         r"""Train the policy and value function with minibatch.
 
         Args:
@@ -307,11 +334,21 @@ class PolicyGradientSafe(VPG):
         for dataset in self._policy_optimizer.get_minibatch(
                 obs, actions, rewards, advs, safety_rewards, safety_advs, masks):
             self._train_policy(*dataset)
-        for dataset in self._vf_optimizer.get_minibatch(obs, returns):
-            self._train_value_function(*dataset)
-        for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
-            self.safety_constraint._train_safety_baseline(*dataset)
 
+        if iqn_returns is not None:
+            for dataset in self._vf_optimizer.get_minibatch(iqn_obs, iqn_returns):
+                self._train_value_function(*dataset)
+        else: 
+            for dataset in self._vf_optimizer.get_minibatch(obs, returns):
+                self._train_value_function(*dataset)
+
+        #account for case of IQNValueFunction
+        if iqn_safety_returns is not None:
+            for dataset in self._safety_optimizer.get_minibatch(iqn_obs, iqn_safety_returns):
+                self.safety_constraint._train_safety_baseline(*dataset)
+        else: 
+            for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
+                self.safety_constraint._train_safety_baseline(*dataset)
 
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages, masks):

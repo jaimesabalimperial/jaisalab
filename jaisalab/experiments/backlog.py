@@ -4,6 +4,7 @@ Constrained RL algorithms.
 Author: Jaime Sabal
 """
 import os 
+import numpy as np
 
 #misc
 import torch
@@ -182,6 +183,11 @@ def saute_trpo_backlog(ctxt=None, seed=1):
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
     
+    model_parameters = filter(lambda p: p.requires_grad, value_function.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print(params)
+    raise Exception
+    
     safety_baseline = GaussianMLPValueFunction(env_spec=env.spec,
                                         hidden_sizes=(64, 64),
                                         hidden_nonlinearity=torch.tanh,
@@ -240,10 +246,11 @@ def iqn_trpo(ctxt=None, seed=1):
                                output_nonlinearity=None)
 
     value_function = IQNValueFunction(env_spec=env.spec,
-                                      layer_size=128)
+                                      layer_size=4)
+
     
     safety_baseline = IQNValueFunction(env_spec=env.spec,
-                                       layer_size=128)
+                                       layer_size=4)
 
     safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
 

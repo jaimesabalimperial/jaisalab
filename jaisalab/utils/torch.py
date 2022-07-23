@@ -6,6 +6,7 @@ import torch.functional as F
 import math
 import pdb
 import torch.nn as nn
+import numpy as np
 
 def to_device(device, *args):
     return [x.to(device) for x in args]
@@ -22,6 +23,11 @@ def initialize_weights_he(m):
         torch.nn.init.kaiming_uniform_(m.weight)
         if m.bias is not None:
             torch.nn.init.constant_(m.bias, 0)
+
+def get_num_parameters(model):
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    return params
 
 class LinearNoise(nn.Linear):
     """Linear layer with Gaussian noise for Noisy Network 
