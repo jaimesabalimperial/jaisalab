@@ -1,11 +1,13 @@
 from datetime import datetime 
 
-
 from dowel import tabular
 import numpy as np
 
 from garage import StepType
 from garage.np import discount_cumsum
+
+import torch 
+import torch.nn as nn
 
 def get_time_stamp_as_string():
     """Get the current time stamp as a string.
@@ -17,6 +19,27 @@ def get_time_stamp_as_string():
     date_time = datetime.now()
     date_time_str = date_time.strftime("%d-%b-%Y (%H-%M-%S)")
     return date_time_str
+
+def to_device(device, *args):
+    return [x.to(device) for x in args]
+
+"""Functions to initialize weights of PyTorch models differently."""
+def initialize_weights_xavier(m, gain=1.0):
+    if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
+        torch.nn.init.xavier_uniform_(m.weight, gain=gain)
+        if m.bias is not None:
+            torch.nn.init.constant_(m.bias, 0)
+
+def initialize_weights_he(m):
+    if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
+        torch.nn.init.kaiming_uniform_(m.weight)
+        if m.bias is not None:
+            torch.nn.init.constant_(m.bias, 0)
+
+def get_num_parameters(model):
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    return params
 
 def log_performance(itr, batch, discount, safety_discount,
                     prefix='Evaluation', is_saute=False):

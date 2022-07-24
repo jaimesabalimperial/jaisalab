@@ -8,7 +8,7 @@ import torch
 from dowel import tabular
 import copy
 
-from garage.torch._functions import zero_optim_grads
+#garage
 from garage.torch.algos import VPG
 from garage.torch import compute_advantages, filter_valids
 from garage.torch._functions import np_to_torch, zero_optim_grads
