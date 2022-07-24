@@ -1,5 +1,5 @@
 import torch
-from jaisalab.utils.torch import to_device
+from jaisalab.utils.modules import to_device
 
 def estimate_constraint_value(costs, masks, gamma, device):
     costs, masks = to_device(torch.device('cpu'), costs, masks)
