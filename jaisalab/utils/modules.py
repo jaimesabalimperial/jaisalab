@@ -8,6 +8,9 @@ import pdb
 import torch.nn as nn
 import numpy as np
 
+#garage
+from garage.torch.modules.mlp_module import MLPModule
+
 class LinearNoise(nn.Linear):
     """Linear layer with Gaussian noise for Noisy Network 
     (https://arxiv.org/pdf/1706.10295.pdf) implementation for efficient exploration."""
@@ -152,7 +155,7 @@ class Gaussian(object):
                 - torch.log(self.sigma)
                 - ((input - self.mu) ** 2) / (2 * self.sigma ** 2)).sum()
 
-class BayesianModule(nn.Module):
+class QRModule(nn.Module):
     """
 
     Args:
@@ -197,6 +200,7 @@ class BayesianModule(nn.Module):
     def __init__(self,
                  input_dim,
                  output_dim,
+                 N,
                  hidden_sizes=(32, 32),
                  *,
                  hidden_nonlinearity=torch.tanh,
@@ -205,11 +209,21 @@ class BayesianModule(nn.Module):
                  output_nonlinearity=None,
                  output_w_init=nn.init.xavier_uniform_,
                  output_b_init=nn.init.zeros_,
-                 learn_std=True,
-                 init_std=1.0,
-                 min_std=1e-6,
-                 max_std=None,
-                 std_parameterization='exp',
                  layer_normalization=False): 
+        self.N = N
 
-        pass
+        self._module = MLPModule(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            hidden_sizes=hidden_sizes,
+            hidden_nonlinearity=hidden_nonlinearity,
+            hidden_w_init=hidden_w_init,
+            hidden_b_init=hidden_b_init,
+            output_nonlinearity=output_nonlinearity,
+            output_w_init=output_w_init,
+            output_b_init=output_b_init,
+            layer_normalization=layer_normalization)
+        
+        #output dim should = 1 if estimating value-return distribution
+        self.output_layer = nn.Linear(hidden_sizes[-1], output_dim * N)
+
