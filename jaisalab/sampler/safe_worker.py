@@ -14,7 +14,7 @@ class SafeWorker(DefaultWorker):
         super().__init__(seed=seed, 
                          max_episode_length=max_episode_length, 
                          worker_number=worker_number)
-    
+
     def collect_episode(self):
         """Collect the current episode, clearing the internal buffer.
 

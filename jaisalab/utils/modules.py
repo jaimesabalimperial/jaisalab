@@ -211,6 +211,7 @@ class QRModule(nn.Module):
                  output_b_init=nn.init.zeros_,
                  layer_normalization=False): 
         self.N = N
+        self.output_dim
 
         self._module = MLPModule(
             input_dim=input_dim,
@@ -227,3 +228,11 @@ class QRModule(nn.Module):
         #output dim should = 1 if estimating value-return distribution
         self.output_layer = nn.Linear(hidden_sizes[-1], output_dim * N)
 
+    def forward(self, obs):
+        x = F.relu(self._module(obs))
+        x = self.output_layer(x)
+        x = x.reshape(-1, self.output_dim, self.N)
+        output = F.softmax(x, dim = -1)
+        log_output = F.log_softmax(x, dim = -1)
+
+        return output, log_output

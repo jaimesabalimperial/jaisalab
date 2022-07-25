@@ -7,7 +7,7 @@ class SafeEpisodeBatch(EpisodeBatch):
     def __init__(self, env_spec, episode_infos, observations, last_observations,
                  actions, rewards, safety_rewards, env_infos, agent_infos, step_types, lengths):
 
-        object.__setattr__(self, 'safety_rewards', safety_rewards) #needed to add safety_rewards to EpisodeBatch attributes
+        object.__setattr__(self, 'safety_rewards', safety_rewards) #needed to add safety_rewards 
 
         super().__init__(env_spec, episode_infos, observations, last_observations, 
                          actions, rewards, env_infos, agent_infos, step_types, lengths)
@@ -23,6 +23,7 @@ class SafeEpisodeBatch(EpisodeBatch):
         """
         return pad_batch_array(self.safety_rewards, self.lengths,
                                self.env_spec.max_episode_length)
+  
     
     def split(self):
         """Split an EpisodeBatch into a list of EpisodeBatches.
