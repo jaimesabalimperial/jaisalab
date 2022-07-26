@@ -120,11 +120,13 @@ def trpo_backlog(ctxt=None, seed=1):
 
     value_function = GaussianMLPValueFunction(env_spec=env.spec,
                                               hidden_sizes=(32, 32),
+                                              init_std=200,
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
     
     safety_baseline = GaussianMLPValueFunction(env_spec=env.spec,
                                         hidden_sizes=(64, 64),
+                                        init_std=200,
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
 
@@ -144,7 +146,7 @@ def trpo_backlog(ctxt=None, seed=1):
                       center_adv=False)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=400, batch_size=1024)
+    trainer.train(n_epochs=800, batch_size=1024)
 
 @wrap_experiment
 def saute_trpo_backlog(ctxt=None, seed=1):
@@ -182,11 +184,6 @@ def saute_trpo_backlog(ctxt=None, seed=1):
                                               hidden_sizes=(32, 32),
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
-    
-    model_parameters = filter(lambda p: p.requires_grad, value_function.parameters())
-    params = sum([np.prod(p.size()) for p in model_parameters])
-    print(params)
-    raise Exception
     
     safety_baseline = GaussianMLPValueFunction(env_spec=env.spec,
                                         hidden_sizes=(64, 64),
@@ -268,4 +265,4 @@ def iqn_trpo(ctxt=None, seed=1):
                       center_adv=False)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=400, batch_size=1024)
+    trainer.train(n_epochs=800, batch_size=1024)

@@ -50,6 +50,7 @@ class PolicyGradientSafe(VPG):
                 safety_constraint=None,
                 safety_discount=1,
                 safety_gae_lambda=1,
+                use_target_vf=False,
                 center_safety_vals=True,
                 num_train_per_epoch=1,
                 step_size=0.01,
@@ -98,11 +99,9 @@ class PolicyGradientSafe(VPG):
         self.safety_gae_lambda = safety_gae_lambda
         self.center_safety_vals = center_safety_vals
         self._is_saute = is_saute
-        self.is_distributional_vf = isinstance(value_function, (IQNValueFunction, GaussianMLPValueFunction))
 
-        #things needed to optimize vf in case of IQN (trying to imitate off-policy update)
-        self._target_vf = copy.deepcopy(value_function)
-
+        if use_target_vf: 
+            self._target_vf = copy.deepcopy(value_function)
 
         self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
                                            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 
@@ -182,8 +181,8 @@ class PolicyGradientSafe(VPG):
         with torch.no_grad():
             if isinstance(self._value_function, GaussianMLPValueFunction):
                 dist = self._value_function.module(obs)
-                mean = dist.mean
-                stddev = dist.stddev
+                mean = torch.flatten(dist.mean).mean()
+                stddev = torch.flatten(dist.stddev).mean()
             elif isinstance(self._value_function, IQNValueFunction):
                 mean, stddev = self._value_function.get_mean_std(obs)
                 mean = torch.flatten(mean).mean()
@@ -204,6 +203,8 @@ class PolicyGradientSafe(VPG):
 
         """
         obs = np_to_torch(eps.padded_observations)
+        #needed to compute temporal difference loss for some value functions
+        next_obs = np_to_torch(eps.padded_next_observations) 
         rewards = np_to_torch(eps.padded_rewards)
         returns = np_to_torch(np.stack([discount_cumsum(reward, self.discount)
                               for reward in eps.padded_rewards]))
@@ -244,43 +245,26 @@ class PolicyGradientSafe(VPG):
         #compute relevant metrics prior to training for logging
         with torch.no_grad():
             policy_loss_before = self._compute_loss_with_adv(obs_flat, actions_flat, rewards_flat, advs_flat)
-
-            #loss function is different for different value functions
-            if isinstance(self._value_function, IQNValueFunction):
-                vf_loss_before = self._value_function.compute_loss(obs, returns)
-                iqn_obs = obs
-                iqn_returns = returns
-                iqn_safety_returns = safety_returns
-            else: 
-                vf_loss_before = self._value_function.compute_loss(obs_flat, returns_flat)
-                iqn_obs = None
-                iqn_returns = None
-                iqn_safety_returns = None
-
+            vf_loss_before = self._value_function.compute_loss(obs_flat, returns_flat)
             kl_before = self._compute_kl_constraint(obs)
 
         #train policy, value function, safety baseline
         self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
                     advs_flat, safety_rewards_flat, safety_returns_flat,
-                    safety_advs_flat, masks, iqn_obs=iqn_obs, 
-                    iqn_returns=iqn_returns, iqn_safety_returns=iqn_safety_returns)
+                    safety_advs_flat, masks)
 
         #compute relevant metrics after training
         with torch.no_grad():
             policy_loss_after = self._compute_loss_with_adv(
                 obs_flat, actions_flat, rewards_flat, advs_flat)
-
-            #loss function is different for different value functions
-            if isinstance(self._value_function, IQNValueFunction):
-                vf_loss_after = self._value_function.compute_loss(obs, returns)
-            else: 
-                vf_loss_after = self._value_function.compute_loss(obs_flat, returns_flat)
-
+            vf_loss_after = self._value_function.compute_loss(obs_flat, returns_flat)
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
 
         #distributional RL
         vf_mean, vf_stddev = self.get_vf_mean_std(obs)
+        print(vf_mean.shape)
+        print(vf_stddev.shape)
         
         if isinstance(self._value_function, IQNValueFunction):
             quantiles = self._value_function.get_quantiles(obs)
@@ -316,8 +300,7 @@ class PolicyGradientSafe(VPG):
     
 
     def _train(self, obs, actions, rewards, returns, advs, 
-               safety_rewards, safety_returns, safety_advs, masks, 
-               iqn_obs, iqn_returns, iqn_safety_returns):
+               safety_rewards, safety_returns, safety_advs, masks):
         r"""Train the policy and value function with minibatch.
 
         Args:
@@ -334,21 +317,10 @@ class PolicyGradientSafe(VPG):
         for dataset in self._policy_optimizer.get_minibatch(
                 obs, actions, rewards, advs, safety_rewards, safety_advs, masks):
             self._train_policy(*dataset)
-
-        if iqn_returns is not None:
-            for dataset in self._vf_optimizer.get_minibatch(iqn_obs, iqn_returns):
-                self._train_value_function(*dataset)
-        else: 
-            for dataset in self._vf_optimizer.get_minibatch(obs, returns):
-                self._train_value_function(*dataset)
-
-        #account for case of IQNValueFunction
-        if iqn_safety_returns is not None:
-            for dataset in self._safety_optimizer.get_minibatch(iqn_obs, iqn_safety_returns):
-                self.safety_constraint._train_safety_baseline(*dataset)
-        else: 
-            for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
-                self.safety_constraint._train_safety_baseline(*dataset)
+        for dataset in self._vf_optimizer.get_minibatch(obs, returns):
+            self._train_value_function(*dataset)
+        for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
+            self.safety_constraint._train_safety_baseline(*dataset)
 
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages, masks):

@@ -75,7 +75,8 @@ class Plotter():
         self._plot_color = random.choice(self._colors)
         self._plot_flags = {1:'returns', 2:'kl', 
                             3:'constraint_vals', 4:'entropy',
-                            5:'losses', 6:'costs', 7:'dist_progress'}
+                            5:'losses', 6:'costs', 7:'dist_progress', 
+                            8:'final_dist'}
 
     def _get_data_dict(self, csvreader): 
         #get metric names
@@ -259,7 +260,7 @@ class Plotter():
             return (1/std*np.sqrt(2*np.pi))*np.exp(-(x - mean)**2 / (2*std**2))
         return normal
 
-    def plot_distribution_progression(self, eps=1.0, num_points=300, interval=200):
+    def plot_distribution_progression(self, eps=1.0, num_points=300, duration=5):
         """"""
         mean_returns_array, std_returns_array = self._get_distribution_data()
         gaussians = [self._gaussian(mean, std) for mean, std in zip(mean_returns_array, std_returns_array)]
@@ -273,12 +274,27 @@ class Plotter():
         def dist_progress(i):
             fig.clear()
             plt.ylim(0,1)
-            p = plt.plot(x_array, y_arrays[i])
+            p = plt.plot(x_array, y_arrays[i], c='r')
 
         plt.xlabel('Returns')
         plt.ylabel('Probability')
-        animator = ani.FuncAnimation(fig, dist_progress, interval=interval)
+        interval = duration*1000 / len(y_arrays)
+        animator = ani.FuncAnimation(fig, dist_progress, interval=interval, save_count=len(y_arrays))
         self._savefig(flag=7, animator=animator)
+
+    def plot_final_distribution(self):
+        mean_returns_array, std_returns_array = self._get_distribution_data()
+        last_mean, last_std = mean_returns_array[-1], std_returns_array[-1]
+        gaussian = self._gaussian(last_mean, last_std)
+        x_array = np.linspace(0, 600, num=1000)
+        y_array = gaussian(x_array)
+
+        fig = plt.figure()
+        plt.plot(x_array, y_array, c='r')
+        plt.xlabel('Return')
+        plt.ylabel('Probability')
+        self._savefig(flag=8)
+
 
     def plot_kl(self):
         pass
