@@ -114,7 +114,7 @@ def trpo_backlog(ctxt=None, seed=1):
 
     trainer = Trainer(ctxt)
 
-    policy = GaussianMLPPolicy(env.spec,
+    policy = SemiImplicitPolicy(env.spec,
                                hidden_sizes=[64, 64],
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)

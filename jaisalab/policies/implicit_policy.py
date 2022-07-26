@@ -72,7 +72,6 @@ class SemiImplicitPolicy(StochasticPolicy):
 
         self._obs_dim = env_spec.observation_space.flat_dim
         self._action_dim = env_spec.action_space.flat_dim
-        self._max_action = float(env_spec.action_space.high[0])
         self._noise_dim = noise_dim
         self._noise_num = noise_num
         self._hidden_sizes = hidden_sizes[:-1]
@@ -107,56 +106,6 @@ class SemiImplicitPolicy(StochasticPolicy):
         self.last_fc_mean = nn.Linear(last_hidden_size, self._action_dim)
         self.last_fc_log_std = nn.Linear(last_hidden_size, self._action_dim)
 
-    def get_actions(self, observations):
-        r"""Get actions given observations.
-
-        Args:
-            observations (np.ndarray): Observations from the environment.
-                Shape is :math:`batch_dim \bullet env_spec.observation_space`.
-
-        Returns:
-            tuple:
-                * np.ndarray: Predicted actions.
-                    :math:`batch_dim \bullet env_spec.action_space`.
-                * dict:
-                    * np.ndarray[float]: Mean of the distribution.
-                    * np.ndarray[float]: Standard deviation of logarithmic
-                        values of the distribution.
-        """
-        if not isinstance(observations[0], np.ndarray) and not isinstance(
-                observations[0], torch.Tensor):
-            observations = self._env_spec.observation_space.flatten_n(
-                observations)
-
-        # frequently users like to pass lists of torch tensors or lists of
-        # numpy arrays. This handles those conversions.
-        if isinstance(observations, list):
-            if isinstance(observations[0], np.ndarray):
-                observations = np.stack(observations)
-            elif isinstance(observations[0], torch.Tensor):
-                observations = torch.stack(observations)
-
-        if isinstance(observations[0],
-                      np.ndarray) and len(observations[0].shape) > 1:
-            observations = self._env_spec.observation_space.flatten_n(
-                observations)
-        elif isinstance(observations[0],
-                        torch.Tensor) and len(observations[0].shape) > 1:
-            observations = torch.flatten(observations, start_dim=1)
-        with torch.no_grad():
-            if isinstance(observations, np.ndarray):
-                observations = np_to_torch(observations)
-            if not isinstance(observations, torch.Tensor):
-
-                observations = list_to_tensor(observations)
-
-            if isinstance(self._env_spec.observation_space, akro.Image):
-                observations /= 255.0  # scale image
-            dist, info = self.forward(observations)
-            actions = info['actions']
-            return actions.cpu().numpy(), {k: v.detach().cpu().numpy()
-                                           for (k, v) in info.items()}
-
     def forward(self, observations):
         """Compute the action distributions from the observations.
 
@@ -177,12 +126,9 @@ class SemiImplicitPolicy(StochasticPolicy):
         prob_aux = self._entropy(observations, actions, pre_tanh_values)
         log_prob = torch.log((log_prob.exp() + prob_aux + self._eps) / (self._noise_num + 1))
 
-        actions = actions * self._max_action
-
-        return (dist._normal, dict(actions=actions, 
-                           mean=dist.mean, 
-                           log_std=(dist.variance**.5).log(),
-                           log_prob=log_prob))
+        return (dist._normal, dict(mean=dist.mean, 
+                                   log_std=(dist.variance**.5).log(),
+                                   log_prob=log_prob))
 
     def _forward(self, observations):
         """Forward call to model."""
