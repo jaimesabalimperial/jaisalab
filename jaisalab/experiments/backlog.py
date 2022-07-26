@@ -18,6 +18,7 @@ from jaisalab.algos.trpo import SafetyTRPO
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 from jaisalab.value_functions import IQNValueFunction
+from jaisalab.policies import SemiImplicitPolicy
 
 #garage
 import garage
@@ -88,7 +89,7 @@ def cpo_backlog(ctxt=None, seed=1):
 
 @wrap_experiment
 def trpo_backlog(ctxt=None, seed=1):
-    """Train TRPO with InvertedDoublePendulum-v2 environment.
+    """Train TRPO with IMP environment.
 
     Args:
         ctxt (garage.experiment.ExperimentContext): The experiment
@@ -114,7 +115,7 @@ def trpo_backlog(ctxt=None, seed=1):
     trainer = Trainer(ctxt)
 
     policy = GaussianMLPPolicy(env.spec,
-                               hidden_sizes=[32, 32],
+                               hidden_sizes=[64, 64],
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)
 

@@ -2,9 +2,16 @@
 
 Implementation of SIA policy of: NEED TO PUT arxiv LINK. 
 """
+from sympy import ShapeError
 import torch
 from torch import nn
+from torch.distributions import Normal
 
+import akro
+import numpy as np
+
+#garage
+from garage.torch._functions import list_to_tensor, np_to_torch
 from garage.torch.policies.stochastic_policy import StochasticPolicy
 from garage.torch.distributions import TanhNormal
 from garage.torch.modules.mlp_module import MLPModule
@@ -54,10 +61,13 @@ class SemiImplicitPolicy(StochasticPolicy):
                  output_nonlinearity=None,
                  output_w_init=nn.init.xavier_uniform_,
                  output_b_init=nn.init.zeros_,
-                 min_log_std=-20, 
-                 max_log_std=20,
+                 min_log_std=1e-6, 
+                 max_log_std=None,
+                 min_log_prob=-5, 
+                 max_log_prob=5,
+                 eps=1e-6,
                  layer_normalization=False,
-                 name='GaussianMLPPolicy'):
+                 name='SemiImplicitPolicy'):
         super().__init__(env_spec, name)
 
         self._obs_dim = env_spec.observation_space.flat_dim
@@ -74,13 +84,16 @@ class SemiImplicitPolicy(StochasticPolicy):
         self._output_b_init = output_b_init
         self._min_log_std = min_log_std
         self._max_log_std = max_log_std
+        self._min_log_prob = min_log_prob
+        self._max_log_prob = max_log_prob
+        self._eps = eps
         self._layer_normalization = layer_normalization
 
         #create policy architecture
         last_hidden_size = hidden_sizes[-1]
 
-        self._base_fc = MLPModule(
-                input_dim=self._obs_dim,
+        self.base_fc = MLPModule(
+                input_dim=self._obs_dim+self._noise_dim,
                 output_dim=last_hidden_size,
                 hidden_sizes=self._hidden_sizes,
                 hidden_nonlinearity=self._hidden_nonlinearity,
@@ -94,6 +107,55 @@ class SemiImplicitPolicy(StochasticPolicy):
         self.last_fc_mean = nn.Linear(last_hidden_size, self._action_dim)
         self.last_fc_log_std = nn.Linear(last_hidden_size, self._action_dim)
 
+    def get_actions(self, observations):
+        r"""Get actions given observations.
+
+        Args:
+            observations (np.ndarray): Observations from the environment.
+                Shape is :math:`batch_dim \bullet env_spec.observation_space`.
+
+        Returns:
+            tuple:
+                * np.ndarray: Predicted actions.
+                    :math:`batch_dim \bullet env_spec.action_space`.
+                * dict:
+                    * np.ndarray[float]: Mean of the distribution.
+                    * np.ndarray[float]: Standard deviation of logarithmic
+                        values of the distribution.
+        """
+        if not isinstance(observations[0], np.ndarray) and not isinstance(
+                observations[0], torch.Tensor):
+            observations = self._env_spec.observation_space.flatten_n(
+                observations)
+
+        # frequently users like to pass lists of torch tensors or lists of
+        # numpy arrays. This handles those conversions.
+        if isinstance(observations, list):
+            if isinstance(observations[0], np.ndarray):
+                observations = np.stack(observations)
+            elif isinstance(observations[0], torch.Tensor):
+                observations = torch.stack(observations)
+
+        if isinstance(observations[0],
+                      np.ndarray) and len(observations[0].shape) > 1:
+            observations = self._env_spec.observation_space.flatten_n(
+                observations)
+        elif isinstance(observations[0],
+                        torch.Tensor) and len(observations[0].shape) > 1:
+            observations = torch.flatten(observations, start_dim=1)
+        with torch.no_grad():
+            if isinstance(observations, np.ndarray):
+                observations = np_to_torch(observations)
+            if not isinstance(observations, torch.Tensor):
+
+                observations = list_to_tensor(observations)
+
+            if isinstance(self._env_spec.observation_space, akro.Image):
+                observations /= 255.0  # scale image
+            dist, info = self.forward(observations)
+            actions = info['actions']
+            return actions.cpu().numpy(), {k: v.detach().cpu().numpy()
+                                           for (k, v) in info.items()}
 
     def forward(self, observations):
         """Compute the action distributions from the observations.
@@ -103,11 +165,76 @@ class SemiImplicitPolicy(StochasticPolicy):
                 torch device.
 
         Returns:
-            torch.distributions.Distribution: Batch distribution of actions.
+            torch.Tensor: Batch of actions.
             dict[str, torch.Tensor]: Additional agent_info, as torch Tensors
 
         """
-        dist = self._module(observations)
-        return (dist, dict(mean=dist.mean, log_std=(dist.variance**.5).log()))
+        dist = self._forward(observations)
+        pre_tanh_values, actions = dist.rsample_with_pre_tanh_value()
+        log_prob = dist.log_prob(actions, pre_tanh_value=pre_tanh_values)
+        log_prob = log_prob.sum(dim=-1, keepdim=True)
 
+        prob_aux = self._entropy(observations, actions, pre_tanh_values)
+        log_prob = torch.log((log_prob.exp() + prob_aux + self._eps) / (self._noise_num + 1))
+
+        actions = actions * self._max_action
+
+        return (dist._normal, dict(actions=actions, 
+                           mean=dist.mean, 
+                           log_std=(dist.variance**.5).log(),
+                           log_prob=log_prob))
+
+    def _forward(self, observations):
+        """Forward call to model."""
+        #handle shapes of inputs for noise addition
+        batch_size = observations.shape[0]
+        if len(observations.shape) == 3:
+            num_timesteps = observations.shape[1]
+            repeat_dims = (batch_size, 1, 1)
+        elif len(observations.shape) == 2: 
+            num_timesteps = 1
+            repeat_dims = (batch_size, 1)
+        else: 
+            raise ShapeError('SemiImplicitPolicy has not been implemented for multi-dimensional inputs.')
+
+        xi = torch.randn((num_timesteps, self._noise_dim)).repeat(*repeat_dims)
+        h = torch.cat((observations, xi), axis=-1)
+        h = self.base_fc(h)
+        mean = self.last_fc_mean(h)
+        std = self.last_fc_log_std(h).clamp(self._min_log_std, self._max_log_std).exp()
+
+        dist = TanhNormal(mean, std)
+
+        return dist
+    
+    def _entropy(self, state, action, pre_tanh_action):
+        """Calculate entropy of choosing action in a state."""
+
+        #handle shape of inputs for noise addition
+        batch_size = state.shape[0]
+        if len(state.shape) == 3: 
+            interleave_dim = 1
+            repeat_dims = (batch_size, 1, 1)
+            num_timesteps = state.shape[1]
+        elif len(state.shape) == 2:
+            interleave_dim = 0
+            repeat_dims = (batch_size, 1)
+            num_timesteps = 1
+        else: 
+            raise ShapeError('SemiImplicitPolicy has not been implemented for multi-dimensional inputs.')
+
+        state = torch.repeat_interleave(state, self._noise_num, dim=interleave_dim)
+        xi = torch.randn((self._noise_num*num_timesteps, self._noise_dim)).repeat(*repeat_dims)
+        hidden = self.base_fc(torch.cat((state, xi), axis=-1))
+        mean = self.last_fc_mean(hidden)
+        std = self.last_fc_log_std(hidden).clamp(self._min_log_std, self._max_log_std).exp()
+        dist = TanhNormal(mean, std)
+
+        action = torch.repeat_interleave(action, self._noise_num, dim=interleave_dim)
+        pre_tanh_action = torch.repeat_interleave(pre_tanh_action, self._noise_num, dim=interleave_dim)
+        log_prob = dist.log_prob(action, pre_tanh_value=pre_tanh_action)
+        #log_prob = log_prob.sum(dim=-1, keepdim=True).view(M, self._noise_num)
+        prob = log_prob.exp().sum(dim=-1, keepdim=True)
+
+        return prob
 
