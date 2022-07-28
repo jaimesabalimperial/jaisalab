@@ -155,7 +155,7 @@ class Gaussian(object):
                 - torch.log(self.sigma)
                 - ((input - self.mu) ** 2) / (2 * self.sigma ** 2)).sum()
 
-class QRModule(nn.Module):
+class DistributionalModule(nn.Module):
     """
 
     Args:
@@ -211,12 +211,14 @@ class QRModule(nn.Module):
                  output_b_init=nn.init.zeros_,
                  layer_normalization=False): 
         self.N = N
-        self.output_dim
+        self.output_dim = output_dim
+        self._hidden_sizes = hidden_sizes[:-1]
+        last_hidden_size = hidden_sizes[-1]
 
         self._module = MLPModule(
             input_dim=input_dim,
-            output_dim=output_dim,
-            hidden_sizes=hidden_sizes,
+            output_dim=last_hidden_size,
+            hidden_sizes=self._hidden_sizes,
             hidden_nonlinearity=hidden_nonlinearity,
             hidden_w_init=hidden_w_init,
             hidden_b_init=hidden_b_init,
@@ -226,7 +228,7 @@ class QRModule(nn.Module):
             layer_normalization=layer_normalization)
         
         #output dim should = 1 if estimating value-return distribution
-        self.output_layer = nn.Linear(hidden_sizes[-1], output_dim * N)
+        self.output_layer = nn.Linear(last_hidden_size, output_dim * N)
 
     def forward(self, obs):
         x = F.relu(self._module(obs))

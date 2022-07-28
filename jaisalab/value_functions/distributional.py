@@ -7,16 +7,16 @@ import torch
 import torch.nn as nn
 
 #jaisalab
-from jaisalab.utils.modules import QRModule
+from jaisalab.utils.modules import DistributionalModule
 
 #misc 
-import math
 
-class QRValueFunction(ValueFunction):
-    """Quantile Regression Value Function with Model.
+class DistributionalValueFunction(ValueFunction):
+    """Distributional Value Function with Model.
 
     Args:
         env_spec (EnvSpec): Environment specification.
+        N (int): Number of quantiles to estimate. 
         hidden_sizes (list[int]): Output dimension of dense layer(s) for
             the MLP for mean. For example, (32, 32) means the MLP consists
             of two hidden layers, each with 32 hidden units.
@@ -64,15 +64,17 @@ class QRValueFunction(ValueFunction):
         output_dim = 1
         self.N = N
     
-        self.module = QRModule(
-            input_dim=input_dim,
-            output_dim=output_dim,
-            N=N,
-            hidden_sizes=hidden_sizes,
-            hidden_nonlinearity=hidden_nonlinearity,
-            hidden_w_init=hidden_w_init,
-            hidden_b_init=hidden_b_init,
-            output_nonlinearity=output_nonlinearity,
-            output_w_init=output_w_init,
-            output_b_init=output_b_init,
-            layer_normalization=layer_normalization)
+        self.module = DistributionalModule(
+                            input_dim=input_dim,
+                            output_dim=output_dim,
+                            N=N,
+                            hidden_sizes=hidden_sizes,
+                            hidden_nonlinearity=hidden_nonlinearity,
+                            hidden_w_init=hidden_w_init,
+                            hidden_b_init=hidden_b_init,
+                            output_nonlinearity=output_nonlinearity,
+                            output_w_init=output_w_init,
+                            output_b_init=output_b_init,
+                            layer_normalization=layer_normalization)
+
+    
