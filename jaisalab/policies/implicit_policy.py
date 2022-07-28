@@ -119,7 +119,7 @@ class SemiImplicitPolicy(StochasticPolicy):
 
         """
         dist = self._forward(observations)
-        pre_tanh_values, actions = dist.rsample_with_pre_tanh_value()
+        actions, pre_tanh_values = dist.rsample_with_pre_tanh_value()
         log_prob = dist.log_prob(actions, pre_tanh_value=pre_tanh_values)
         log_prob = log_prob.sum(dim=-1, keepdim=True)
 
