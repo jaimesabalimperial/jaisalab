@@ -5,6 +5,7 @@ is considered (i.e. where there is a cost associated with state-action pairs).
 Author: Jaime Sabal Bermúdez
 """
 import torch
+from torch.distributions import Distribution
 from dowel import tabular
 import copy
 
@@ -178,18 +179,15 @@ class PolicyGradientSafe(VPG):
         return loss_grad
     
     def get_vf_mean_std(self, obs):
-        with torch.no_grad():
-            if isinstance(self._value_function, GaussianMLPValueFunction):
-                dist = self._value_function.module(obs)
-                mean = torch.flatten(dist.mean).mean()
-                stddev = torch.flatten(dist.stddev).mean()
-            elif isinstance(self._value_function, IQNValueFunction):
-                mean, stddev = self._value_function.get_mean_std(obs)
-                mean = torch.flatten(mean).mean()
-                stddev = torch.flatten(stddev).mean()
-
-        
-        return mean, stddev
+        mean_std_func = getattr(self._value_function, 'get_mean_std', None)
+        #check if there is a function to retrieve the mean and std
+        if callable(mean_std_func):
+            episode_means, episode_stddevs = mean_std_func(obs)
+            mean = torch.flatten(episode_means).mean()
+            stddev = torch.flatten(episode_stddevs).mean()
+            return mean, stddev
+        else: 
+            return None, None
         
     def _train_once(self, itr, eps):
         """Train the algorithm once.
@@ -263,12 +261,7 @@ class PolicyGradientSafe(VPG):
 
         #distributional RL
         vf_mean, vf_stddev = self.get_vf_mean_std(obs)
-        print(vf_mean.shape)
-        print(vf_stddev.shape)
         
-        if isinstance(self._value_function, IQNValueFunction):
-            quantiles = self._value_function.get_quantiles(obs)
-
         #log interesting metrics
         with tabular.prefix(self.policy.name):
             tabular.record('/LossBefore', policy_loss_before.item())
@@ -283,8 +276,9 @@ class PolicyGradientSafe(VPG):
             tabular.record('/LossBefore', vf_loss_before.item())
             tabular.record('/LossAfter', vf_loss_after.item())
             tabular.record('/dLoss', vf_loss_before.item() - vf_loss_after.item())
-            tabular.record('/MeanValue', vf_mean.item())
-            tabular.record('/StdValue', vf_stddev.item())
+            if vf_mean is not None and vf_stddev is not None: 
+                tabular.record('/MeanValue', vf_mean.item())
+                tabular.record('/StdValue', vf_stddev.item())
 
             #if isinstance(self._value_function, IQNValueFunction):
             #    tabular.record('/QuantileValues', quantiles.to_list())

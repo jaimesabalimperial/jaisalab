@@ -76,5 +76,8 @@ class DistributionalValueFunction(ValueFunction):
                             output_w_init=output_w_init,
                             output_b_init=output_b_init,
                             layer_normalization=layer_normalization)
+        
 
-    
+
+        def compute_loss(self, obs, returns, **kwargs):
+            pass

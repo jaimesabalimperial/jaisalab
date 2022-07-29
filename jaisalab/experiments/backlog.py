@@ -17,17 +17,13 @@ from jaisalab.algos.cpo import CPO
 from jaisalab.algos.trpo import SafetyTRPO
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
-from jaisalab.value_functions import IQNValueFunction
+from jaisalab.value_functions import GaussianValueFunction, IQNValueFunction
 from jaisalab.policies import SemiImplicitPolicy, GaussianPolicy
 
 #garage
 import garage
-from garage.torch.policies import GaussianMLPPolicy
-from garage.torch.value_functions import GaussianMLPValueFunction
 from garage import Trainer, wrap_experiment
 from garage.experiment.deterministic import set_seed
-from garage.torch.policies import GaussianMLPPolicy
-from garage.torch.value_functions import GaussianMLPValueFunction
 
 @wrap_experiment
 def cpo_backlog(ctxt=None, seed=1):
@@ -61,15 +57,13 @@ def cpo_backlog(ctxt=None, seed=1):
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)
 
-    value_function = GaussianMLPValueFunction(env_spec=env.spec,
+    value_function = GaussianValueFunction(env_spec=env.spec,
                                               hidden_sizes=(64, 64),
-                                              init_std=200,
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
 
-    safety_baseline = GaussianMLPValueFunction(env_spec=env.spec,
-                                            hidden_sizes=(64, 64),
-                                            init_std=200,                                           
+    safety_baseline = GaussianValueFunction(env_spec=env.spec,
+                                            hidden_sizes=(64, 64),                                        
                                             hidden_nonlinearity=torch.tanh,
                                             output_nonlinearity=None)
 
@@ -121,15 +115,13 @@ def trpo_backlog(ctxt=None, seed=1):
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)
 
-    value_function = GaussianMLPValueFunction(env_spec=env.spec,
+    value_function = GaussianValueFunction(env_spec=env.spec,
                                               hidden_sizes=(64, 64),
-                                              init_std=200,
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
     
-    safety_baseline = GaussianMLPValueFunction(env_spec=env.spec,
+    safety_baseline = GaussianValueFunction(env_spec=env.spec,
                                         hidden_sizes=(64, 64),
-                                        init_std=200,
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
 
@@ -178,17 +170,17 @@ def saute_trpo_backlog(ctxt=None, seed=1):
 
     trainer = Trainer(ctxt)
 
-    policy = GaussianMLPPolicy(env.spec,
+    policy = GaussianPolicy(env.spec,
                                hidden_sizes=[32, 32],
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)
 
-    value_function = GaussianMLPValueFunction(env_spec=env.spec,
+    value_function = GaussianValueFunction(env_spec=env.spec,
                                               hidden_sizes=(32, 32),
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
     
-    safety_baseline = GaussianMLPValueFunction(env_spec=env.spec,
+    safety_baseline = GaussianValueFunction(env_spec=env.spec,
                                         hidden_sizes=(64, 64),
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
@@ -240,7 +232,7 @@ def iqn_trpo(ctxt=None, seed=1):
 
     trainer = Trainer(ctxt)
 
-    policy = GaussianMLPPolicy(env.spec,
+    policy = GaussianPolicy(env.spec,
                                hidden_sizes=[32, 32],
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)

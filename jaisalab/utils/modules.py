@@ -235,6 +235,13 @@ class DistributionalModule(nn.Module):
         x = self.output_layer(x)
         x = x.reshape(-1, self.output_dim, self.N)
         output = F.softmax(x, dim = -1)
+
+        return output
+    
+    def log_dist(self, obs):
+        x = F.relu(self._module(obs))
+        x = self.output_layer(x)
+        x = x.reshape(-1, self.output_dim, self.N)
         log_output = F.log_softmax(x, dim = -1)
 
-        return output, log_output
+        return log_output

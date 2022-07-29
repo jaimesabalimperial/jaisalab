@@ -2,16 +2,10 @@
 
 Implementation of SIA policy of: NEED TO PUT arxiv LINK. 
 """
-from sympy import ShapeError
 import torch
 from torch import nn
-from torch.distributions import Normal
-
-import akro
-import numpy as np
 
 #garage
-from garage.torch._functions import list_to_tensor, np_to_torch
 from garage.torch.policies.stochastic_policy import StochasticPolicy
 from garage.torch.distributions import TanhNormal
 from garage.torch.modules.mlp_module import MLPModule
