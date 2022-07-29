@@ -26,7 +26,7 @@ from garage import Trainer, wrap_experiment
 from garage.experiment.deterministic import set_seed
 
 @wrap_experiment
-def cpo_backlog(ctxt=None, seed=1):
+def cpo_backlog(ctxt=None, seed=1, n_epochs=600):
     """Train CPO with InvManagementBacklogEnv environment.
 
     Args:
@@ -81,10 +81,10 @@ def cpo_backlog(ctxt=None, seed=1):
                center_adv=False)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=400, batch_size=1024)
+    trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 @wrap_experiment
-def trpo_backlog(ctxt=None, seed=1):
+def trpo_backlog(ctxt=None, seed=1, n_epochs=600):
     """Train TRPO with IMP environment.
 
     Args:
@@ -143,10 +143,10 @@ def trpo_backlog(ctxt=None, seed=1):
                       center_adv=False)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=800, batch_size=1024)
+    trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 @wrap_experiment
-def saute_trpo_backlog(ctxt=None, seed=1):
+def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
     """Train TRPO with InvertedDoublePendulum-v2 environment.
 
     Args:
@@ -204,11 +204,11 @@ def saute_trpo_backlog(ctxt=None, seed=1):
                       is_saute=True)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=400, batch_size=1024)
+    trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 
 @wrap_experiment
-def iqn_trpo(ctxt=None, seed=1):
+def iqn_trpo(ctxt=None, seed=1, n_epochs=600):
     """Train TRPO with InvertedDoublePendulum-v2 environment.
 
     Args:
@@ -262,4 +262,4 @@ def iqn_trpo(ctxt=None, seed=1):
                       center_adv=False)
 
     trainer.setup(algo, env)
-    trainer.train(n_epochs=800, batch_size=1024)
+    trainer.train(n_epochs=n_epochs, batch_size=1024)
