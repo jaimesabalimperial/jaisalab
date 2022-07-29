@@ -35,7 +35,7 @@ class PolicyGradientSafe(VPG):
 
     also with safety constraints
 
-    Can use this as a base class for VPG, ERWR, TNPG, TRPO, etc. by picking appropriate optimizers / arguments
+    Can use this as a base class for VPG, CPO, TRPO, etc. by picking appropriate optimizers / arguments
 
     for CPO: Use ConjugateConstraint optimizer with max_backtracks>1
     for TRPO: use ConjugateGradient optimizer with max_backtracks>1
@@ -156,35 +156,22 @@ class PolicyGradientSafe(VPG):
 
         return advantage_flat
     
-    
-    def _get_loss_grad(self, obs, actions, rewards, advantages):
-        """"""
-        with torch.set_grad_enabled(True):
-            loss = self._compute_loss_with_adv(obs, actions, rewards, advantages)
-
-        grads = torch.autograd.grad(loss, self.policy.parameters())
-        loss_grad = torch.cat([grad.view(-1) for grad in grads]).detach() #g  
-
-        if self.grad_norm == True:
-            loss_grad = loss_grad/torch.norm(loss_grad)
-
-        return loss, loss_grad
-    
     def _get_grad(self, loss):
-        """Get the gradient of the loss with respect to policy parameters.
-        """
+        """Get the gradient of the loss with respect to policy parameters."""
         grads = torch.autograd.grad(loss, self.policy.parameters())
         loss_grad = torch.cat([grad.view(-1) for grad in grads]).detach() #b
 
         return loss_grad
     
     def get_vf_mean_std(self, obs):
+        """Get the mean and standard deviation of the state-value
+        function after training on the latest observations."""
         mean_std_func = getattr(self._value_function, 'get_mean_std', None)
         #check if there is a function to retrieve the mean and std
         if callable(mean_std_func):
-            episode_means, episode_stddevs = mean_std_func(obs)
-            mean = torch.flatten(episode_means).mean()
-            stddev = torch.flatten(episode_stddevs).mean()
+            mean, stddev = mean_std_func(obs)
+            mean = torch.flatten(mean).mean()
+            stddev = torch.flatten(stddev).mean()
             return mean, stddev
         else: 
             return None, None
@@ -201,8 +188,6 @@ class PolicyGradientSafe(VPG):
 
         """
         obs = np_to_torch(eps.padded_observations)
-        #needed to compute temporal difference loss for some value functions
-        next_obs = np_to_torch(eps.padded_next_observations) 
         rewards = np_to_torch(eps.padded_rewards)
         returns = np_to_torch(np.stack([discount_cumsum(reward, self.discount)
                               for reward in eps.padded_rewards]))
@@ -216,6 +201,7 @@ class PolicyGradientSafe(VPG):
             rewards += self._policy_ent_coeff * policy_entropies
 
         obs_flat = np_to_torch(eps.observations)
+        next_obs_flat = np_to_torch(eps.next_observations)
         actions_flat = np_to_torch(eps.actions)
         rewards_flat = np_to_torch(eps.rewards)
         returns_flat = torch.cat(filter_valids(returns, valids))
@@ -247,7 +233,7 @@ class PolicyGradientSafe(VPG):
             kl_before = self._compute_kl_constraint(obs)
 
         #train policy, value function, safety baseline
-        self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
+        self._train(obs_flat, next_obs_flat, actions_flat, rewards_flat, returns_flat,
                     advs_flat, safety_rewards_flat, safety_returns_flat,
                     safety_advs_flat, masks)
 
@@ -260,7 +246,8 @@ class PolicyGradientSafe(VPG):
             policy_entropy = self._compute_policy_entropy(obs)
 
         #distributional RL
-        vf_mean, vf_stddev = self.get_vf_mean_std(obs)
+        #get mean and standard deviation of initial state in IMP
+        vf_mean, vf_stddev = self.get_vf_mean_std(self.initial_state)
         
         #log interesting metrics
         with tabular.prefix(self.policy.name):
@@ -293,13 +280,14 @@ class PolicyGradientSafe(VPG):
         return np.mean(undiscounted_returns)
     
 
-    def _train(self, obs, actions, rewards, returns, advs, 
+    def _train(self, obs, next_obs, actions, rewards, returns, advs, 
                safety_rewards, safety_returns, safety_advs, masks):
         r"""Train the policy and value function with minibatch.
 
         Args:
             obs (torch.Tensor): Observation from the environment with shape
                 :math:`(N, O*)`.
+            next_obs (torch.Tensor): Next observations from environment. 
             actions (torch.Tensor): Actions fed to the environment with shape
                 :math:`(N, A*)`.
             rewards (torch.Tensor): Acquired rewards with shape :math:`(N, )`.
@@ -311,10 +299,33 @@ class PolicyGradientSafe(VPG):
         for dataset in self._policy_optimizer.get_minibatch(
                 obs, actions, rewards, advs, safety_rewards, safety_advs, masks):
             self._train_policy(*dataset)
-        for dataset in self._vf_optimizer.get_minibatch(obs, returns):
+        for dataset in self._vf_optimizer.get_minibatch(obs, next_obs, returns):
             self._train_value_function(*dataset)
         for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
             self.safety_constraint._train_safety_baseline(*dataset)
+
+    def _train_value_function(self, obs, next_obs, returns):
+        r"""Train the value function.
+
+        Args:
+            obs (torch.Tensor): Observation from the environment
+                with shape :math:`(N, O*)`.
+            returns (torch.Tensor): Acquired returns
+                with shape :math:`(N, )`.
+
+        Returns:
+            torch.Tensor: Calculated mean scalar value of value function loss
+                (float).
+
+        """
+        # pylint: disable=protected-access
+        zero_optim_grads(self._vf_optimizer._optimizer)
+
+        loss = self._value_function.compute_loss(obs, returns)
+        loss.backward()
+        self._vf_optimizer.step()
+
+        return loss
 
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages, masks):

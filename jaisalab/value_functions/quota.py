@@ -9,10 +9,9 @@ import torch.nn as nn
 #jaisalab
 from jaisalab.utils.modules import DistributionalModule
 
-#misc 
 
-class DistributionalValueFunction(ValueFunction):
-    """Distributional Value Function with Model.
+class QUOTAValueFunction(ValueFunction):
+    """QUOTA Value Function with Model.
 
     Args:
         env_spec (EnvSpec): Environment specification.
@@ -77,7 +76,6 @@ class DistributionalValueFunction(ValueFunction):
                             output_b_init=output_b_init,
                             layer_normalization=layer_normalization)
         
-
 
         def compute_loss(self, obs, returns, **kwargs):
             pass
