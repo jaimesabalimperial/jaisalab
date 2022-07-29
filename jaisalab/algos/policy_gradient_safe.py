@@ -320,7 +320,7 @@ class PolicyGradientSafe(VPG):
         """
         # pylint: disable=protected-access
         zero_optim_grads(self._vf_optimizer._optimizer)
-
+        
         loss = self._value_function.compute_loss(obs, returns)
         loss.backward()
         self._vf_optimizer.step()

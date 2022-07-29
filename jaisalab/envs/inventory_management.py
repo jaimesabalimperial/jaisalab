@@ -3,12 +3,11 @@ Multi-period inventory management
 Hector Perez, Christian Hubbs, Owais Sarwar
 4/14/2020
 
-Inspired by https://github.com/hubbs5/or-gym and tweaked by Jaime Sabal
+Taken from https://github.com/hubbs5/or-gym and tweaked by Jaime Sabal
 to fit the garage framework for testing and evaluating RL algorithms.
 '''
-#gym/or-gym
+#gym
 import gym
-from or_gym.utils import assign_env_config
 
 #garage
 import akro
@@ -21,6 +20,21 @@ from scipy.stats import *
 #jaisalab
 from jaisalab.envs.saute_env import saute_env
 from jaisalab.envs.safe_env import SafeEnv
+
+def assign_env_config(self, kwargs):
+    for key, value in kwargs.items():
+        setattr(self, key, value)
+    if hasattr(self, 'env_config'):
+        for key, value in self.env_config.items():
+            # Check types based on default settings
+            if hasattr(self, key):
+                if type(getattr(self,key)) == np.ndarray:
+                    setattr(self, key, value)
+                else:
+                    setattr(self, key,
+                        type(getattr(self, key))(value))
+            else:
+                raise AttributeError(f"{self} has no attribute, {key}")
 
 class InvManagementMasterEnv(gym.Env):
     '''

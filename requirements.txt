@@ -82,4 +82,3 @@ webencodings==0.5.1
 xlwings==0.24.9
 zict==2.0.0
 git+https://github.com/rlworkgroup/garage.git@master
-git+https://github.com/hubbs5/or-gym.git@master
