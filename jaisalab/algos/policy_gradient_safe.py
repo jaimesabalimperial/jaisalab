@@ -104,9 +104,16 @@ class PolicyGradientSafe(VPG):
         if use_target_vf: 
             self._target_vf = copy.deepcopy(value_function)
 
-        self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
-                                           0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 
-                                           0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
+        #IMP-specific attributes
+        if self.env_spec.observation_space.flat_dim == 33:
+            self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
+                                               0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 
+                                               0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
+        elif self.env_spec.observation_space.flat_dim == 34:
+            self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
+                                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 
+                                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.])
+
 
         super().__init__(env_spec=env_spec,
                          policy=policy,
@@ -320,7 +327,7 @@ class PolicyGradientSafe(VPG):
         """
         # pylint: disable=protected-access
         zero_optim_grads(self._vf_optimizer._optimizer)
-        
+
         loss = self._value_function.compute_loss(obs, returns)
         loss.backward()
         self._vf_optimizer.step()

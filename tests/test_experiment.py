@@ -2,7 +2,7 @@ import pytest
 
 #misc
 from jaisalab.experiments import (trpo_backlog, cpo_backlog, 
-                                  saute_trpo_backlog, iqn_trpo)
+                                  saute_trpo_backlog)
 
 def test_cpo_backlog():
     cpo_backlog(seed=1, n_epochs=5)
