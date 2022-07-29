@@ -80,4 +80,5 @@ webcolors==1.12
 webencodings==0.5.1
 xlwings==0.24.9
 zict==2.0.0
+sympy==1.10.1
 git+https://github.com/rlworkgroup/garage.git@master
