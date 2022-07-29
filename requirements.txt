@@ -1,4 +1,3 @@
-absl-py==1.1.0
 akro==0.0.8
 appdirs==1.4.4
 astunparse==1.6.3
