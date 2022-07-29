@@ -22,7 +22,7 @@ from garage import Trainer, wrap_experiment
 from garage.experiment.deterministic import set_seed
 
 @wrap_experiment
-def cpo_backlog(ctxt=None, seed=1, n_epochs=600):
+def test_cpo_backlog(ctxt=None, seed=1, n_epochs=600):
     """Train CPO with InvManagementBacklogEnv environment.
 
     Args:
@@ -80,7 +80,7 @@ def cpo_backlog(ctxt=None, seed=1, n_epochs=600):
     trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 @wrap_experiment
-def trpo_backlog(ctxt=None, seed=1, n_epochs=600):
+def test_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
     """Train TRPO with IMP environment.
 
     Args:
@@ -142,7 +142,7 @@ def trpo_backlog(ctxt=None, seed=1, n_epochs=600):
     trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 @wrap_experiment
-def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
+def test_saute_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
     """Train TRPO with InvertedDoublePendulum-v2 environment.
 
     Args:
@@ -203,7 +203,7 @@ def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
     trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 if __name__ == '__main__':
-    trpo_backlog(seed=1, n_epochs=5)
-    cpo_backlog(seed=1, n_epochs=5)
-    saute_trpo_backlog(seed=1, n_epochs=5)
+    test_trpo_backlog(seed=1, n_epochs=5)
+    test_cpo_backlog(seed=1, n_epochs=5)
+    test_saute_trpo_backlog(seed=1, n_epochs=5)
 
