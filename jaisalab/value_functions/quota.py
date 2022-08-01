@@ -84,15 +84,19 @@ class QUOTAValueFunction(ValueFunction):
         self.Vmin = Vmin
         self.Vmax = Vmax
         self.delta_z = (Vmax-Vmin)/(N-1)
+        self.V_range = [self.Vmin + i*self.delta_z for i in range(self.N)]
         self.last_log_dist = None
     
     def forward(self, obs):
         """Forward call to model."""
-        #TODO: NEED TO MODIFY THIS (I STILL DONT REALLY KNOW HOW TO INTERPRET MODEL OUTPUT)
-        
-        dist, log_dist = self.module.forward(obs)
-        self.last_log_dist = log_dist
-        return dist
+        z_dist = torch.from_numpy(np.array([self.V_range])).repeat(*obs.shape[:-1], 1)
+        z_dist = torch.unsqueeze(z_dist, -1).float()
+
+        #V_dist.shape = (batch_size, 1, N); z_dist.shape = (batch_size, N)
+        V_dist, V_log_dist = self.module.forward(obs)
+        V = torch.matmul(V_dist, z_dist).view(obs.shape[:-1])
+        self.last_log_dist = V_log_dist
+        return V
 
     def compute_loss(self, obs, next_obs, actions, returns):
         """Compute loss."""

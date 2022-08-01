@@ -101,7 +101,7 @@ class PolicyGradientSafe(VPG):
         self._is_saute = is_saute
 
         #should modify this if more vf's are implemented that use the q-learning update
-        self.is_q_update = isinstance(self._value_function, QUOTAValueFunction)
+        self.is_q_update = isinstance(value_function, QUOTAValueFunction)
 
         if use_target_vf: 
             self._target_vf = copy.deepcopy(value_function)

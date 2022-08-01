@@ -2,7 +2,7 @@
 Author - Jaime Sabal
 """
 import torch
-import torch.functional as F
+import torch.nn.functional as F
 import math
 import pdb
 import torch.nn as nn
@@ -234,7 +234,7 @@ class DistributionalModule(nn.Module):
     def forward(self, obs):
         x = F.relu(self._module(obs))
         x = self.output_layer(x)
-        x = x.reshape(-1, self.output_dim, self.N)
+        x = x.view(*obs.shape[:-1], self.output_dim, self.N)
         output = F.softmax(x, dim = -1)
         log_output = F.log_softmax(x, dim = -1)
 
