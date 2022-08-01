@@ -17,7 +17,7 @@ from garage.np import discount_cumsum
 
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
-from jaisalab.utils import log_performance
+from jaisalab.utils import log_performance, soft_update
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 from jaisalab.value_functions import QUOTAValueFunction, GaussianValueFunction
@@ -81,7 +81,7 @@ class PolicyGradientSafe(VPG):
         self._safety_optimizer = self.safety_constraint.baseline_optimizer
         self.safety_constrained_optimizer = safety_constrained_optimizer
         self.step_size = step_size 
-        self.safety_step_size = self.safety_constraint.get_safety_step()
+        self.safety_step_size = self.safety_constraint.safety_step
 
         if sampler is None: 
             self.sampler = SamplerSafe()
@@ -103,8 +103,11 @@ class PolicyGradientSafe(VPG):
         #should modify this if more vf's are implemented that use the q-learning update
         self.is_q_update = isinstance(value_function, QUOTAValueFunction)
 
-        if use_target_vf: 
+        if self.is_q_update: 
             self._target_vf = copy.deepcopy(value_function)
+            self.safety_constraint.target_baseline = copy.deepcopy(self.safety_constraint.baseline)
+        else: 
+            self._target_vf = None
 
         #environment-specific attributes (change or ignore at will)
         if self.env_spec.observation_space.flat_dim == 33:
@@ -202,6 +205,7 @@ class PolicyGradientSafe(VPG):
         returns = np_to_torch(np.stack([discount_cumsum(reward, self.discount)
                               for reward in eps.padded_rewards]))
         valids = eps.lengths
+        masks = eps.env_infos['mask']
 
         with torch.no_grad():
             baselines = self._value_function(obs)
@@ -218,40 +222,50 @@ class PolicyGradientSafe(VPG):
         advs_flat = self._compute_advantage(rewards, valids, baselines)
 
         #safety-related things
-        if self.safety_constraint:
-            masks = np_to_torch(eps.env_infos["mask"])
-            safety_rewards = np_to_torch(eps.padded_safety_rewards)
-            safety_rewards_flat = np_to_torch(eps.safety_rewards)
-            safety_returns = np_to_torch(np.stack([discount_cumsum(safety_reward, self.safety_discount)
-                                                   for safety_reward in eps.padded_safety_rewards]))
+        safety_rewards = np_to_torch(eps.padded_safety_rewards)
+        safety_rewards_flat = np_to_torch(eps.safety_rewards)
+        safety_returns = np_to_torch(np.stack([discount_cumsum(safety_reward, self.safety_discount)
+                                                for safety_reward in eps.padded_safety_rewards]))
 
-            #calculate safety baseline
-            with torch.no_grad():
-                safety_baselines = self.safety_constraint.baseline(obs)
-            
-            if self._maximum_entropy:
-                policy_entropies = self._compute_policy_entropy(obs)
-                safety_rewards += self._policy_ent_coeff * policy_entropies
+        #calculate safety baseline
+        with torch.no_grad():
+            safety_baselines = self.safety_constraint.baseline(obs)
+        
+        if self._maximum_entropy:
+            policy_entropies = self._compute_policy_entropy(obs)
+            safety_rewards += self._policy_ent_coeff * policy_entropies
 
-            safety_returns_flat = torch.cat(filter_valids(safety_returns, valids))
-            safety_advs_flat = self._compute_safety_advantage(safety_rewards, valids, safety_baselines)
+        safety_returns_flat = torch.cat(filter_valids(safety_returns, valids))
+        safety_advs_flat = self._compute_safety_advantage(safety_rewards, valids, safety_baselines)
 
         #compute relevant metrics prior to training for logging
         with torch.no_grad():
             policy_loss_before = self._compute_loss_with_adv(obs_flat, actions_flat, rewards_flat, advs_flat)
-            vf_loss_before = self._value_function.compute_loss(obs_flat, returns_flat)
+
+            if self.is_q_update:
+                vf_loss_before = self._value_function.compute_loss(obs_flat, next_obs_flat, rewards_flat, masks, 
+                                                                   target_vf=self._target_vf, gamma=self._discount)
+            else: 
+                vf_loss_before = self._value_function.compute_loss(obs_flat, returns_flat)
+
             kl_before = self._compute_kl_constraint(obs)
 
         #train policy, value function, safety baseline
         self._train(obs_flat, next_obs_flat, actions_flat, rewards_flat, returns_flat,
                     advs_flat, safety_rewards_flat, safety_returns_flat,
-                    safety_advs_flat)
+                    safety_advs_flat, masks)
 
         #compute relevant metrics after training
         with torch.no_grad():
             policy_loss_after = self._compute_loss_with_adv(
                 obs_flat, actions_flat, rewards_flat, advs_flat)
-            vf_loss_after = self._value_function.compute_loss(obs_flat, returns_flat)
+
+            if self.is_q_update:
+                vf_loss_after = self._value_function.compute_loss(obs_flat, next_obs_flat, rewards_flat, masks, 
+                                                                   target_vf=self._target_vf, gamma=self._discount)
+            else: 
+                vf_loss_after = self._value_function.compute_loss(obs_flat, returns_flat)
+
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
 
@@ -291,7 +305,7 @@ class PolicyGradientSafe(VPG):
     
 
     def _train(self, obs, next_obs, actions, rewards, returns, advs, 
-               safety_rewards, safety_returns, safety_advs):
+               safety_rewards, safety_returns, safety_advs, masks):
         r"""Train the policy and value function with minibatch.
 
         Args:
@@ -306,23 +320,18 @@ class PolicyGradientSafe(VPG):
                 :math:`(N, )`.
 
         """
-        #select inputs to vf optimization
-        if self.is_q_update: 
-            vf_args = (obs, next_obs, actions, rewards)
-            safety_baseline_args = (obs, next_obs, actions, safety_rewards)
-        else: 
-            vf_args = (obs, returns)
-            safety_baseline_args = (obs, safety_returns)
-
         for dataset in self._policy_optimizer.get_minibatch(
                 obs, actions, rewards, advs, safety_rewards, safety_advs):
             self._train_policy(*dataset)
-        for dataset in self._vf_optimizer.get_minibatch(*vf_args):
+        for dataset in self._vf_optimizer.get_minibatch(
+                obs, next_obs, returns, rewards, masks):
             self._train_value_function(*dataset)
-        for dataset in self._safety_optimizer.get_minibatch(*safety_baseline_args):
+        for dataset in self._safety_optimizer.get_minibatch(
+                obs, next_obs, safety_returns, safety_rewards, masks):
             self.safety_constraint._train_safety_baseline(*dataset)
 
-    def _train_value_function(self, obs, next_obs, actions, returns, rewards):
+    def _train_value_function(self, obs, next_obs, 
+                              returns, rewards, masks):
         r"""Train the value function. Here we support both the Q-learning 
         and the policy-gradient optimization steps for the value function.
 
@@ -347,19 +356,24 @@ class PolicyGradientSafe(VPG):
         """
         # pylint: disable=protected-access
         zero_optim_grads(self._vf_optimizer._optimizer)
-        #get kwargs of loss function 
-        args, varargs, varkw, defaults = inspect.getargspec(self._value_function.compute_loss)
 
         #differentiate between Q-learning vs policy-gradient optimization steps
-        if 'next_obs' in args and 'actions' in args:
-            loss = self._value_function.compute_loss(obs, next_obs, actions, returns)
+        if self.is_q_update:
+            loss = self._value_function.compute_loss(obs, next_obs, rewards, masks, 
+                                                     target_vf=self._target_vf, gamma=self._discount)
         else:
             loss = self._value_function.compute_loss(obs, returns)
 
+        #backpropagate loss and perform optimization step
         loss.backward()
         self._vf_optimizer.step()
 
+        #soft update on target vf parameters
+        if self._target_vf is not None:
+            soft_update(self._value_function, self._target_vf)
+
         return loss
+    
 
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages):

@@ -19,10 +19,10 @@ class SoftInventoryConstraint(BaseConstraint):
     """
     def __init__(self, max_value=1e-3, baseline=None, 
                  baseline_optimizer=None, penalty=1., 
-                 **kwargs):
+                 discount=1., **kwargs):
         super().__init__(max_value, baseline=baseline, 
                          baseline_optimizer=baseline_optimizer, 
-                         penalty=penalty, **kwargs)
+                         penalty=penalty, discount=discount, **kwargs)
 
     def evaluate(self, path):
         """If the replenishment order is above the capacity or the inventory constraints

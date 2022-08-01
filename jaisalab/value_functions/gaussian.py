@@ -119,7 +119,6 @@ class GaussianValueFunction(ValueFunction):
 
         return dist.mean, dist.stddev
 
-
     # pylint: disable=arguments-differ
     def forward(self, observations):
         """Compute the action distributions from the observations.

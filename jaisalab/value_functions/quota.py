@@ -68,43 +68,71 @@ class QUOTAValueFunction(ValueFunction):
         self.N = N
     
         self.module = DistributionalModule(
-                            input_dim=input_dim,
-                            output_dim=output_dim,
-                            N=N,
-                            hidden_sizes=hidden_sizes,
-                            hidden_nonlinearity=hidden_nonlinearity,
-                            hidden_w_init=hidden_w_init,
-                            hidden_b_init=hidden_b_init,
-                            output_nonlinearity=output_nonlinearity,
-                            output_w_init=output_w_init,
-                            output_b_init=output_b_init,
-                            layer_normalization=layer_normalization)
+                                input_dim=input_dim,
+                                output_dim=output_dim,
+                                N=N,
+                                hidden_sizes=hidden_sizes,
+                                hidden_nonlinearity=hidden_nonlinearity,
+                                hidden_w_init=hidden_w_init,
+                                hidden_b_init=hidden_b_init,
+                                output_nonlinearity=output_nonlinearity,
+                                output_w_init=output_w_init,
+                                output_b_init=output_b_init,
+                                layer_normalization=layer_normalization)
+    
         
         #environment-specific
         self.Vmin = Vmin
         self.Vmax = Vmax
         self.delta_z = (Vmax-Vmin)/(N-1)
-        self.V_range = [self.Vmin + i*self.delta_z for i in range(self.N)]
+        self.V_range = torch.tensor([self.Vmin + i*self.delta_z for i in range(self.N)])
         self.last_log_dist = None
     
-    def forward(self, obs):
+    def forward(self, obs, log_output=False, dist_output=False):
         """Forward call to model."""
-        z_dist = torch.from_numpy(np.array([self.V_range])).repeat(*obs.shape[:-1], 1)
+        #retrieve quantile values to estimate probabilities for
+        z_dist = self.V_range.repeat(*obs.shape[:-1], 1)
         z_dist = torch.unsqueeze(z_dist, -1).float()
 
-        #V_dist.shape = (batch_size, 1, N); z_dist.shape = (batch_size, N)
+        #V_dist.shape = (obs.shape[:-1], 1, N); z_dist.shape = (obs.shape[:-1], N, 1)
+        #Calculate mean value of quantiles
         V_dist, V_log_dist = self.module.forward(obs)
-        V = torch.matmul(V_dist, z_dist).view(obs.shape[:-1])
-        self.last_log_dist = V_log_dist
-        return V
 
-    def compute_loss(self, obs, next_obs, actions, returns):
+        if log_output:
+            return V_log_dist
+        elif dist_output: 
+            return V_dist
+        else: 
+            V = torch.matmul(V_dist, z_dist).view(obs.shape[:-1])
+            return V
+
+    def compute_loss(self, obs, next_obs, rewards, 
+                     masks, target_vf, gamma):
         """Compute loss."""
-        z_dist = torch.from_numpy(np.array([[self.Vmin + i*self.delta_z for i in range(self.N)]]*obs.shape[0]))
-        z_dist = torch.unsqueeze(z_dist, 2).float()
-        print('z_dist = ', z_dist.shape)
-        print('obs = ', obs.shape)
-        print('next_obs = ',next_obs.shape)
-        print('actions = ',actions.shape)
-        print('returns = ',returns.shape)
-        raise Exception
+        V_log_dist_pred = self.forward(obs, log_output=True) 
+        V_target = target_vf.forward(next_obs, dist_output=True) #calculate value using target network
+
+        m = torch.zeros(*obs.shape[:-1], self.N)
+        for j in range(self.N):
+            T_zj = torch.clamp(rewards + gamma * (1-masks) * (self.Vmin + j*self.delta_z), min = self.Vmin, max = self.Vmax)
+            bj = (T_zj - self.Vmin)/self.delta_z
+            l = bj.floor().long()
+            u = bj.ceil().long()
+
+            V_narrowed = torch.narrow(V_target, -1, j, j)
+            print(V_narrowed.shape)
+            print(m.shape)
+            raise Exception
+            mask_Q_l = torch.zeros(m.size())
+            mask_Q_l.scatter_(1, l, V_narrowed.unsqueeze(1))
+            mask_Q_u = torch.zeros(m.size())
+            mask_Q_u.scatter_(1, u, V_narrowed.unsqueeze(1))
+            m += mask_Q_l*(u.float() + (l == u).float()-bj.float())
+            m += mask_Q_u*(-l.float()+bj.float())
+
+        print(V_log_dist_pred.shape)
+        print(m.shape)
+        #calculate Huber loss
+        loss = - torch.sum(torch.sum(torch.mul(V_log_dist_pred, m),-1),-1) / obs.shape[0]
+
+        return None

@@ -178,9 +178,9 @@ def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
                                output_nonlinearity=None)
 
     value_function = GaussianValueFunction(env_spec=env.spec,
-                                              hidden_sizes=(32, 32),
-                                              hidden_nonlinearity=torch.tanh,
-                                              output_nonlinearity=None)
+                                            hidden_sizes=(64, 64),
+                                            hidden_nonlinearity=torch.tanh,
+                                            output_nonlinearity=None)
     
     safety_baseline = GaussianValueFunction(env_spec=env.spec,
                                         hidden_sizes=(64, 64),
