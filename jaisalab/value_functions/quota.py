@@ -1,17 +1,19 @@
-
-#garage
-from garage.torch.value_functions.value_function import ValueFunction
-
-#torch 
+#misc 
 import torch 
 import torch.nn as nn
+import numpy as np
 
 #jaisalab
 from jaisalab.value_functions.modules import DistributionalModule
 
+#garage
+from garage.torch.value_functions.value_function import ValueFunction
+
 
 class QUOTAValueFunction(ValueFunction):
     """QUOTA Value Function with Model.
+
+    Paper: https://arxiv.org/pdf/1811.02073.pdf
 
     Args:
         env_spec (EnvSpec): Environment specification.
@@ -48,6 +50,8 @@ class QUOTAValueFunction(ValueFunction):
     def __init__(self,
                  env_spec,
                  N, 
+                 Vmin=-800,
+                 Vmax=800,
                  hidden_sizes=(32, 32),
                  hidden_nonlinearity=torch.tanh,
                  hidden_w_init=nn.init.xavier_uniform_,
@@ -56,7 +60,7 @@ class QUOTAValueFunction(ValueFunction):
                  output_w_init=nn.init.xavier_uniform_,
                  output_b_init=nn.init.zeros_,
                  layer_normalization=False,
-                 name='QRValueFunction'):
+                 name='QUOTAValueFunction'):
         super().__init__(env_spec, name)
 
         input_dim = env_spec.observation_space.flat_dim
@@ -76,6 +80,27 @@ class QUOTAValueFunction(ValueFunction):
                             output_b_init=output_b_init,
                             layer_normalization=layer_normalization)
         
+        #environment-specific
+        self.Vmin = Vmin
+        self.Vmax = Vmax
+        self.delta_z = (Vmax-Vmin)/(N-1)
+        self.last_log_dist = None
+    
+    def forward(self, obs):
+        """Forward call to model."""
+        #TODO: NEED TO MODIFY THIS (I STILL DONT REALLY KNOW HOW TO INTERPRET MODEL OUTPUT)
+        
+        dist, log_dist = self.module.forward(obs)
+        self.last_log_dist = log_dist
+        return dist
 
-        def compute_loss(self, obs, returns, **kwargs):
-            pass
+    def compute_loss(self, obs, next_obs, actions, returns):
+        """Compute loss."""
+        z_dist = torch.from_numpy(np.array([[self.Vmin + i*self.delta_z for i in range(self.N)]]*obs.shape[0]))
+        z_dist = torch.unsqueeze(z_dist, 2).float()
+        print('z_dist = ', z_dist.shape)
+        print('obs = ', obs.shape)
+        print('next_obs = ',next_obs.shape)
+        print('actions = ',actions.shape)
+        print('returns = ',returns.shape)
+        raise Exception

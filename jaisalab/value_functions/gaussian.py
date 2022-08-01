@@ -103,6 +103,7 @@ class GaussianValueFunction(ValueFunction):
         mean = self.last_fc_mean(h)
         std = self.last_fc_log_std(h).exp()
 
+        #surrogate loss
         dist = self._distribution_cls(mean, std)
         ll = dist.log_prob(returns.reshape(-1, 1))
         loss = -ll.mean()

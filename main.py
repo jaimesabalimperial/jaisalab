@@ -1,6 +1,6 @@
 from torch import seed
 from jaisalab.experiments.backlog import (trpo_backlog, cpo_backlog, 
-                                          saute_trpo_backlog)
+                                          saute_trpo_backlog, cpo_quota_backlog)
 from jaisalab.metrics import Plotter
 
 def test_trpo_backlog():
@@ -11,6 +11,9 @@ def test_cpo_backlog():
 
 def test_saute_trpo_backlog():
     saute_trpo_backlog(seed=1)
+
+def test_cpo_quota_backlog():
+    cpo_quota_backlog(seed=1)
 
 def plot_experiment():
     #fdir = ['trpo_backlog_1', 'cpo_backlog_2', 'saute_trpo_backlog_19']
@@ -24,5 +27,6 @@ def plot_experiment():
 if __name__ == '__main__':
     #test_trpo_backlog()
     #test_cpo_backlog()
-    test_saute_trpo_backlog()
+    #test_saute_trpo_backlog()
+    test_cpo_quota_backlog()
     plot_experiment()

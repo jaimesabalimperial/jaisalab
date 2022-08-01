@@ -210,6 +210,7 @@ class DistributionalModule(nn.Module):
                  output_w_init=nn.init.xavier_uniform_,
                  output_b_init=nn.init.zeros_,
                  layer_normalization=False): 
+        super().__init__()
         self.N = N
         self.output_dim = output_dim
         self._hidden_sizes = hidden_sizes[:-1]
@@ -235,13 +236,6 @@ class DistributionalModule(nn.Module):
         x = self.output_layer(x)
         x = x.reshape(-1, self.output_dim, self.N)
         output = F.softmax(x, dim = -1)
-
-        return output
-    
-    def log_dist(self, obs):
-        x = F.relu(self._module(obs))
-        x = self.output_layer(x)
-        x = x.reshape(-1, self.output_dim, self.N)
         log_output = F.log_softmax(x, dim = -1)
 
-        return log_output
+        return output, log_output

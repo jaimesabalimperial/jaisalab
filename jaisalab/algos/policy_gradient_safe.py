@@ -5,23 +5,22 @@ is considered (i.e. where there is a cost associated with state-action pairs).
 Author: Jaime Sabal Bermúdez
 """
 import torch
-from torch.distributions import Distribution
 from dowel import tabular
 import copy
+import inspect
 
 #garage
 from garage.torch.algos import VPG
 from garage.torch import compute_advantages, filter_valids
 from garage.torch._functions import np_to_torch, zero_optim_grads
 from garage.np import discount_cumsum
-from garage.torch.value_functions import GaussianMLPValueFunction
 
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
 from jaisalab.utils import log_performance
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
-from jaisalab.value_functions import IQNValueFunction
+from jaisalab.value_functions import QUOTAValueFunction, GaussianValueFunction
 
 import numpy as np
 
@@ -67,7 +66,7 @@ class PolicyGradientSafe(VPG):
                 is_saute = False):
 
         if safety_constraint is None:
-            safety_baseline = GaussianMLPValueFunction(env_spec=env_spec,
+            safety_baseline = GaussianValueFunction(env_spec=env_spec,
                                                      hidden_sizes=(64, 64),
                                                      hidden_nonlinearity=torch.tanh,
                                                      output_nonlinearity=None)
@@ -101,14 +100,18 @@ class PolicyGradientSafe(VPG):
         self.center_safety_vals = center_safety_vals
         self._is_saute = is_saute
 
+        #should modify this if more vf's are implemented that use the q-learning update
+        self.is_q_update = isinstance(self._value_function, QUOTAValueFunction)
+
         if use_target_vf: 
             self._target_vf = copy.deepcopy(value_function)
 
-        #IMP-specific attributes
+        #environment-specific attributes (change or ignore at will)
         if self.env_spec.observation_space.flat_dim == 33:
             self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
                                                0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 
                                                0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
+        #for SAUTE algorithms states are augmented
         elif self.env_spec.observation_space.flat_dim == 34:
             self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
                                         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 
@@ -242,7 +245,7 @@ class PolicyGradientSafe(VPG):
         #train policy, value function, safety baseline
         self._train(obs_flat, next_obs_flat, actions_flat, rewards_flat, returns_flat,
                     advs_flat, safety_rewards_flat, safety_returns_flat,
-                    safety_advs_flat, masks)
+                    safety_advs_flat)
 
         #compute relevant metrics after training
         with torch.no_grad():
@@ -288,7 +291,7 @@ class PolicyGradientSafe(VPG):
     
 
     def _train(self, obs, next_obs, actions, rewards, returns, advs, 
-               safety_rewards, safety_returns, safety_advs, masks):
+               safety_rewards, safety_returns, safety_advs):
         r"""Train the policy and value function with minibatch.
 
         Args:
@@ -303,20 +306,37 @@ class PolicyGradientSafe(VPG):
                 :math:`(N, )`.
 
         """
+        #select inputs to vf optimization
+        if self.is_q_update: 
+            vf_args = (obs, next_obs, actions, rewards)
+            safety_baseline_args = (obs, next_obs, actions, safety_rewards)
+        else: 
+            vf_args = (obs, returns)
+            safety_baseline_args = (obs, safety_returns)
+
         for dataset in self._policy_optimizer.get_minibatch(
-                obs, actions, rewards, advs, safety_rewards, safety_advs, masks):
+                obs, actions, rewards, advs, safety_rewards, safety_advs):
             self._train_policy(*dataset)
-        for dataset in self._vf_optimizer.get_minibatch(obs, next_obs, returns):
+        for dataset in self._vf_optimizer.get_minibatch(*vf_args):
             self._train_value_function(*dataset)
-        for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
+        for dataset in self._safety_optimizer.get_minibatch(*safety_baseline_args):
             self.safety_constraint._train_safety_baseline(*dataset)
 
-    def _train_value_function(self, obs, next_obs, returns):
-        r"""Train the value function.
+    def _train_value_function(self, obs, next_obs, actions, returns, rewards):
+        r"""Train the value function. Here we support both the Q-learning 
+        and the policy-gradient optimization steps for the value function.
+
+        In Q-learning, we use the temporal-difference (TD)-error to calculate 
+        the loss which requires usage of the next observations, actions, and 
+        observations. In policy gradient methods, the value function is usually
+        optimized through a surrogate loss calculated through the log-likelihood 
+        of obtaining the observed returns under the current value function. 
 
         Args:
             obs (torch.Tensor): Observation from the environment
                 with shape :math:`(N, O*)`.
+            next_obs (torch.Tensor): Next observations from the environment
+                with shape :math:`(N, )`.            
             returns (torch.Tensor): Acquired returns
                 with shape :math:`(N, )`.
 
@@ -327,15 +347,22 @@ class PolicyGradientSafe(VPG):
         """
         # pylint: disable=protected-access
         zero_optim_grads(self._vf_optimizer._optimizer)
+        #get kwargs of loss function 
+        args, varargs, varkw, defaults = inspect.getargspec(self._value_function.compute_loss)
 
-        loss = self._value_function.compute_loss(obs, returns)
+        #differentiate between Q-learning vs policy-gradient optimization steps
+        if 'next_obs' in args and 'actions' in args:
+            loss = self._value_function.compute_loss(obs, next_obs, actions, returns)
+        else:
+            loss = self._value_function.compute_loss(obs, returns)
+
         loss.backward()
         self._vf_optimizer.step()
 
         return loss
 
     def _train_policy(self, obs, actions, rewards, advantages, 
-                      safety_rewards, safety_advantages, masks):
+                      safety_rewards, safety_advantages):
         r"""Train the policy.
 
         Args:
