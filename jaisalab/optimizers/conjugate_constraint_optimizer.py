@@ -19,7 +19,7 @@ from torch.optim import Optimizer
 
 from garage.np import unflatten_tensors
 from garage.torch.optimizers.conjugate_gradient_optimizer import _build_hessian_vector_product, _conjugate_gradient
-from jaisalab.utils.modules import *
+from jaisalab.value_functions.modules import *
 from jaisalab.utils.math import *
 
 

@@ -5,13 +5,13 @@ from jaisalab.experiments import (trpo_backlog, cpo_backlog,
                                   saute_trpo_backlog)
 
 def test_cpo_backlog():
-    cpo_backlog(seed=1, n_epochs=5)
+    cpo_backlog(seed=1, n_epochs=2)
 
 def test_trpo_backlog():
-    trpo_backlog(seed=1, n_epochs=5)
+    trpo_backlog(seed=1, n_epochs=2)
 
 def test_saute_trpo_backlog():
-    saute_trpo_backlog(seed=1, n_epochs=5)
+    saute_trpo_backlog(seed=1, n_epochs=2)
 
 if __name__ == '__main__':
     test_trpo_backlog()

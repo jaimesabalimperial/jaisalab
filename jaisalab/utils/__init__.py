@@ -1,5 +1,5 @@
 from .env import *
-from .modules import *
+from ..value_functions.modules import *
 from .math import *
 from .agent import *
 from .misc import *

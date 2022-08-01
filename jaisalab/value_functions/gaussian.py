@@ -11,10 +11,8 @@ from garage.torch.value_functions.value_function import ValueFunction
 from garage.torch.modules.mlp_module import MLPModule
 
 class GaussianValueFunction(ValueFunction):
-    """MLP whose outputs are fed into a Normal distribution..
-
-    A policy that contains a MLP to make prediction based on a gaussian
-    distribution.
+    """MLP whose outputs are the mean and standard deviation of 
+    the state-return (i.e. value) of the inputs. 
 
     Args:
         env_spec (EnvSpec): Environment specification.

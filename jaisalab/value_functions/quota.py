@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 
 #jaisalab
-from jaisalab.utils.modules import DistributionalModule
+from jaisalab.value_functions.modules import DistributionalModule
 
 
 class QUOTAValueFunction(ValueFunction):
