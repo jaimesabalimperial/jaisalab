@@ -178,7 +178,7 @@ class Plotter():
                     col_names_ls.append(col) 
         
         if len(col_names_ls) != len(col_names): 
-            raise KeyError('Mean and/or standard deviation data not found.')
+            raise KeyError('Specified columns were not found.')
     
         names_idxs = [col_suffixes.index(name) for name in col_names]
 
