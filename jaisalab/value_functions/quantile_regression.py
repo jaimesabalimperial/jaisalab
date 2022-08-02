@@ -109,6 +109,7 @@ class QRValueFunction(ValueFunction):
             return V
         
     def get_mean_std(self, obs):
+        """Get mean and standard deviation of quantile distribution."""
         #retrieve quantile values to estimate probabilities for
         z_dist = self.V_range.repeat(*obs.shape[:-1], 1)
         z_dist = torch.unsqueeze(z_dist, -1).float()
@@ -121,12 +122,22 @@ class QRValueFunction(ValueFunction):
 
         return mean, std
     
-#    def get_quantiles(self, obs):
+    def get_quantiles(self, obs):
+        """Get quantile probabilities and values."""
+        z_dist = self.V_range.repeat(*obs.shape[:-1], 1)
+        z_dist = torch.unsqueeze(z_dist, -1).float()
+
+        with torch.no_grad():
+            V_dist, V_log_dist = self.module.forward(obs)
         
+        V_dist = V_dist.flatten().tolist()
+        z_dist = z_dist.flatten().tolist()
+
+        return V_dist, z_dist
 
     def compute_loss(self, obs, next_obs, rewards, 
                      masks, target_vf, gamma):
-        """Compute loss."""
+        """Compute quantile regression loss."""
         V_log_dist_pred = self.forward(obs, log_output=True) 
         V_target = target_vf.forward(next_obs, dist_output=True) #calculate value using target network
 

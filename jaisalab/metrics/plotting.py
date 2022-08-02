@@ -116,9 +116,13 @@ class Plotter():
         return data_dict
 
     def _collect_data(self):
-        if isinstance(self.fdir, (list, tuple)):   
-            files = [open(f'{file}/progress.csv') for file in self.fdir]
-            csvreader = [csv.reader(file) for file in files]#csv readers
+        if isinstance(self.fdir, (list, tuple)):
+            if len(self.fdir) > 1:
+                files = [open(f'{file}/progress.csv') for file in self.fdir]
+                csvreader = [csv.reader(file) for file in files]#csv readers
+            else: 
+                file = open(f'{self.fdir[0]}/progress.csv')
+                csvreader = csv.reader(file) #csv reader
         else: 
             file = open(f'{self.fdir}/progress.csv')
             csvreader = csv.reader(file) #csv reader
@@ -135,10 +139,14 @@ class Plotter():
 
     def _collect_data_as_np(self):
         data_dict = self._collect_data()
-        if isinstance(self.fdir, (list, tuple)):  
-            for exp in self.fdir:
-                for metric, values in data_dict[exp].items():
-                    data_dict[exp][metric] = np.array(values)
+        if isinstance(self.fdir, (list, tuple)):
+            if len(self.fdir) > 1:
+                for exp in self.fdir:
+                    for metric, values in data_dict[exp].items():
+                        data_dict[exp][metric] = np.array(values)
+            else: 
+                for metric, values in data_dict.items():
+                    data_dict[metric] = np.array(values)
         else:
             for metric, values in data_dict.items():
                 data_dict[metric] = np.array(values)
@@ -157,6 +165,24 @@ class Plotter():
 
             except FileExistsError:
                 pass
+    
+    def _get_columns(self, col_names):
+        col_suffixes = []
+        col_names_ls = []
+        for col in self.data.keys():
+            sep_col = col.split('/')
+            if len(sep_col) > 1:
+                col_suffix = sep_col[1]
+                if col_suffix in col_names:
+                    col_suffixes.append(col_suffix)
+                    col_names_ls.append(col) 
+        
+        if len(col_names_ls) != len(col_names): 
+            raise KeyError('Mean and/or standard deviation data not found.')
+    
+        names_idxs = [col_suffixes.index(name) for name in col_names]
+
+        return col_names_ls, names_idxs
     
     def _get_data_arrays(self, y_column, std_column=None):
         if isinstance(self.fdir, (list, tuple)):
@@ -178,21 +204,24 @@ class Plotter():
         
     def _get_distribution_data(self):
         if isinstance(self.fdir, (list, tuple)):
+            if len(self.fdir) > 1:
+                raise TypeError('Distribution progression can only be plotted for individual experiments.')
+
+        col_names = ['MeanValue', 'StdValue']
+        cols_ls, names_idxs = self._get_columns(col_names)
+        mean_returns_array = self.data[cols_ls[names_idxs[0]]]
+        std_returns_array = self.data[cols_ls[names_idxs[1]]]
+        
+        return mean_returns_array, std_returns_array
+    
+    def _get_quantiles_data(self):
+        if isinstance(self.fdir, (list, tuple)):
             raise TypeError('Distribution progression can only be plotted for individual experiments.')
 
-        mean_column = None
-        std_column = None
-        for col in self.data.keys():
-            if col[-9:] == 'MeanValue':
-                mean_column = col 
-            if col[-8:] == 'StdValue':
-                std_column = col 
-        
-        if mean_column is None or std_column is None: 
-            raise KeyError('Mean and/or standard deviation data not found.')
-        
-        mean_returns_array = self.data[mean_column]
-        std_returns_array = self.data[std_column]
+        col_names = ['QuantileProbabilities', 'QuantileValues']
+        cols_ls, names_idxs = self._get_columns(col_names)
+        mean_returns_array = self.data[cols_ls[names_idxs[0]]]
+        std_returns_array = self.data[cols_ls[names_idxs[1]]]
         
         return mean_returns_array, std_returns_array
 
@@ -260,7 +289,7 @@ class Plotter():
             return (1/std*np.sqrt(2*np.pi))*np.exp(-(x - mean)**2 / (2*std**2))
         return normal
 
-    def plot_distribution_progression(self, eps=1.0, num_points=300, duration=5):
+    def plot_gaussian_progression(self, eps=1.0, num_points=300, duration=5):
         """"""
         mean_returns_array, std_returns_array = self._get_distribution_data()
         gaussians = [self._gaussian(mean, std) for mean, std in zip(mean_returns_array, std_returns_array)]

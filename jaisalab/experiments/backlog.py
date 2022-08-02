@@ -208,7 +208,7 @@ def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
 
 
 @wrap_experiment
-def cpo_quota_backlog(ctxt=None, seed=1, n_epochs=600):
+def dcpo_backlog(ctxt=None, seed=1, n_epochs=600):
     """Train CPO with InvManagementBacklogEnv environment.
 
     Args:
@@ -251,12 +251,12 @@ def cpo_quota_backlog(ctxt=None, seed=1, n_epochs=600):
                                          hidden_nonlinearity=torch.tanh,
                                          output_nonlinearity=None)
 
+    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
+
     sampler = SamplerSafe(agents=policy,
                           envs=env, 
                           max_episode_length=env.spec.max_episode_length, 
                           worker_args={'safety_constraint': safety_constraint})
-
-    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
 
     algo = CPO(env_spec=env.spec,
                policy=policy,

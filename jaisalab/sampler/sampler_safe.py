@@ -7,12 +7,12 @@ import torch
 from garage.experiment.deterministic import get_seed
 from garage.sampler import LocalSampler
 from garage.sampler.worker_factory import WorkerFactory
-from garage.torch.value_functions import GaussianMLPValueFunction
 
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab import SafeEpisodeBatch
+from jaisalab.value_functions import GaussianValueFunction
 
 
 class SamplerSafe(LocalSampler):
@@ -65,7 +65,7 @@ class SamplerSafe(LocalSampler):
         #impose a safety constraint to the environment
         if worker_args['safety_constraint'] is None:
             if hasattr(envs, 'supply_capacity'):
-                safety_baseline = GaussianMLPValueFunction(env_spec=envs.spec,
+                safety_baseline = GaussianValueFunction(env_spec=envs.spec,
                                         hidden_sizes=(64, 64),
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
