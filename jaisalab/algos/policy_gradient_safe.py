@@ -192,11 +192,11 @@ class PolicyGradientSafe(VPG):
     def get_quantiles(self, obs):
         """Get the quantiles of the state-value
         distribution after training on the latest observations."""
-        mean_std_func = getattr(self._value_function, 'get_quantiles', None)
+        quantiles_func = getattr(self._value_function, 'get_quantiles', None)
         #check if there is a function to retrieve the mean and std
-        if callable(mean_std_func):
-            quantile_probs, quantile_vals = mean_std_func(obs)
-            return quantile_probs, quantile_vals
+        if callable(quantiles_func):
+            quantile_probs = quantiles_func(obs)
+            return quantile_probs
         else: 
             return None, None
         
@@ -283,7 +283,7 @@ class PolicyGradientSafe(VPG):
         #distributional RL
         #get mean and standard deviation of initial state in IMP
         vf_mean, vf_stddev = self.get_vf_mean_std(self.initial_state)
-        quantile_probs, quantile_vals = self.get_quantiles(self.initial_state)
+        quantile_probs = self.get_quantiles(self.initial_state)
         
         #log interesting metrics
         with tabular.prefix(self.policy.name):
@@ -303,8 +303,8 @@ class PolicyGradientSafe(VPG):
                 tabular.record('/MeanValue', vf_mean.item())
                 tabular.record('/StdValue', vf_stddev.item())
             if quantile_probs is not None: 
-                tabular.record('/QuantileProbabilities', quantile_probs)
-                tabular.record('/QuantileValues', quantile_vals)
+                for j in range(len(quantile_probs)):
+                    tabular.record(f'/QuantileProbability#{j}', quantile_probs[j])
 
             #if isinstance(self._value_function, IQNValueFunction):
             #    tabular.record('/QuantileValues', quantiles.to_list())

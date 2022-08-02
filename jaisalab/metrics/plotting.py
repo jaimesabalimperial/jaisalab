@@ -76,7 +76,7 @@ class Plotter():
         self._plot_flags = {1:'returns', 2:'kl', 
                             3:'constraint_vals', 4:'entropy',
                             5:'losses', 6:'costs', 7:'dist_progress', 
-                            8:'final_dist'}
+                            8:'final_dist', 9:'quantile_dist_progress'}
 
     def _get_data_dict(self, csvreader): 
         #get metric names
@@ -214,16 +214,26 @@ class Plotter():
         
         return mean_returns_array, std_returns_array
     
-    def _get_quantiles_data(self):
+    def _get_quantiles_data(self, Vmin, Vmax):
         if isinstance(self.fdir, (list, tuple)):
-            raise TypeError('Distribution progression can only be plotted for individual experiments.')
+            if len(self.fdir) > 1:
+                raise TypeError('Distribution progression can only be plotted for individual experiments.')
 
-        col_names = ['QuantileProbabilities', 'QuantileValues']
+        N = max([int(col.split('#')[-1]) for col in self.data.keys() if '#' in col]) + 1
+        col_names = [f'QuantileProbability#{j}' for j in range(N)]
+
         cols_ls, names_idxs = self._get_columns(col_names)
-        mean_returns_array = self.data[cols_ls[names_idxs[0]]]
-        std_returns_array = self.data[cols_ls[names_idxs[1]]]
+        #retrieve quantile probabilities
+        quantile_probs = []
+        for j in range(N):
+            quantile_probs.append(self.data[cols_ls[names_idxs[j]]])
         
-        return mean_returns_array, std_returns_array
+        quantile_probs = np.array(quantile_probs).T #transpose array so that indices correspond to epochs
+
+        delta_z = (Vmax-Vmin)/(N-1)
+        quantile_vals = [Vmin + i*delta_z for i in range(N)]
+        
+        return quantile_probs, quantile_vals
 
     def _plot(self, x_array, y_array, ylabel, 
               std=None, title=None):
@@ -324,6 +334,20 @@ class Plotter():
         plt.ylabel('Probability')
         self._savefig(flag=8)
 
+    def plot_quantiles_progression(self, Vmin=-800, Vmax=800, duration=5):
+        quantile_probs, quantile_vals = self._get_quantiles_data(Vmin, Vmax)
+
+        fig = plt.figure()
+        def dist_progress(i):
+            fig.clear()
+            plt.ylim(0,1)
+            p = plt.bar(quantile_vals, quantile_probs[i], color='r', width=20)
+        
+        plt.xlabel('Value')
+        plt.ylabel('Probability')
+        interval = duration*1000 / len(quantile_probs)
+        animator = ani.FuncAnimation(fig, dist_progress, interval=interval, save_count=len(quantile_probs))
+        self._savefig(flag=9, animator=animator)
 
     def plot_kl(self):
         pass

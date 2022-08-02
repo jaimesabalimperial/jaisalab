@@ -124,16 +124,13 @@ class QRValueFunction(ValueFunction):
     
     def get_quantiles(self, obs):
         """Get quantile probabilities and values."""
-        z_dist = self.V_range.repeat(*obs.shape[:-1], 1)
-        z_dist = torch.unsqueeze(z_dist, -1).float()
 
         with torch.no_grad():
-            V_dist, V_log_dist = self.module.forward(obs)
+            V_dist = self.forward(obs, dist_output=True)
         
         V_dist = V_dist.flatten().tolist()
-        z_dist = z_dist.flatten().tolist()
 
-        return V_dist, z_dist
+        return V_dist
 
     def compute_loss(self, obs, next_obs, rewards, 
                      masks, target_vf, gamma):
