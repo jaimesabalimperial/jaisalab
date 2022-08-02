@@ -112,7 +112,7 @@ class QRValueFunction(ValueFunction):
         #retrieve quantile values to estimate probabilities for
         z_dist = self.V_range.repeat(*obs.shape[:-1], 1)
         z_dist = torch.unsqueeze(z_dist, -1).float()
-        
+
         with torch.no_grad():
             V_dist, V_log_dist = self.module.forward(obs)
 
@@ -120,6 +120,9 @@ class QRValueFunction(ValueFunction):
         std = standard_deviation(z_dist, V_dist)
 
         return mean, std
+    
+#    def get_quantiles(self, obs):
+        
 
     def compute_loss(self, obs, next_obs, rewards, 
                      masks, target_vf, gamma):

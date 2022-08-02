@@ -17,7 +17,7 @@ from jaisalab.algos.cpo import CPO
 from jaisalab.algos.trpo import SafetyTRPO
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
-from jaisalab.value_functions import GaussianValueFunction, QUOTAValueFunction, IQNValueFunction
+from jaisalab.value_functions import GaussianValueFunction, QRValueFunction, IQNValueFunction
 from jaisalab.policies import SemiImplicitPolicy, GaussianPolicy
 
 #garage
@@ -206,6 +206,7 @@ def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
     trainer.setup(algo, env)
     trainer.train(n_epochs=n_epochs, batch_size=1024)
 
+
 @wrap_experiment
 def cpo_quota_backlog(ctxt=None, seed=1, n_epochs=600):
     """Train CPO with InvManagementBacklogEnv environment.
@@ -238,20 +239,22 @@ def cpo_quota_backlog(ctxt=None, seed=1, n_epochs=600):
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)
 
-    value_function = QUOTAValueFunction(env_spec=env.spec,
+    value_function = QRValueFunction(env_spec=env.spec,
                                         N=60,
                                         hidden_sizes=(64, 64),
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
 
-    safety_baseline = QUOTAValueFunction(env_spec=env.spec,
+    safety_baseline = QRValueFunction(env_spec=env.spec,
                                          N=60, 
                                          hidden_sizes=(64, 64),                                        
                                          hidden_nonlinearity=torch.tanh,
                                          output_nonlinearity=None)
 
     sampler = SamplerSafe(agents=policy,
-                          envs=env)
+                          envs=env, 
+                          max_episode_length=env.spec.max_episode_length, 
+                          worker_args={'safety_constraint': safety_constraint})
 
     safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
 

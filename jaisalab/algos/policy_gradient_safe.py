@@ -20,7 +20,7 @@ from jaisalab.sampler.safe_worker import SafeWorker
 from jaisalab.utils import log_performance, soft_update
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
-from jaisalab.value_functions import QUOTAValueFunction, GaussianValueFunction
+from jaisalab.value_functions import QRValueFunction, GaussianValueFunction
 
 import numpy as np
 
@@ -101,7 +101,7 @@ class PolicyGradientSafe(VPG):
         self._is_saute = is_saute
 
         #should modify this if more vf's are implemented that use the q-learning update
-        self.is_q_update = isinstance(value_function, QUOTAValueFunction)
+        self.is_q_update = isinstance(value_function, QRValueFunction)
 
         if self.is_q_update: 
             self._target_vf = copy.deepcopy(value_function)
@@ -188,6 +188,17 @@ class PolicyGradientSafe(VPG):
             return mean, stddev
         else: 
             return None, None
+    
+    def get_quantiles(self, obs):
+        """Get the quantiles of the state-value
+        distribution after training on the latest observations."""
+        mean_std_func = getattr(self._value_function, 'get_quantiles', None)
+        #check if there is a function to retrieve the mean and std
+        if callable(mean_std_func):
+            quantile_probs, quantile_vals = mean_std_func(obs)
+            return quantile_probs, quantile_vals
+        else: 
+            return None, None
         
     def _train_once(self, itr, eps):
         """Train the algorithm once.
@@ -272,6 +283,7 @@ class PolicyGradientSafe(VPG):
         #distributional RL
         #get mean and standard deviation of initial state in IMP
         vf_mean, vf_stddev = self.get_vf_mean_std(self.initial_state)
+        quantile_probs, quantile_vals = self.get_quantiles(self.initial_state)
         
         #log interesting metrics
         with tabular.prefix(self.policy.name):
@@ -290,6 +302,9 @@ class PolicyGradientSafe(VPG):
             if vf_mean is not None and vf_stddev is not None: 
                 tabular.record('/MeanValue', vf_mean.item())
                 tabular.record('/StdValue', vf_stddev.item())
+            if quantile_probs is not None: 
+                tabular.record('/QuantileProbabilities', quantile_probs)
+                tabular.record('/QuantileValues', quantile_vals)
 
             #if isinstance(self._value_function, IQNValueFunction):
             #    tabular.record('/QuantileValues', quantiles.to_list())

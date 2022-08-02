@@ -15,18 +15,19 @@ def test_saute_trpo_backlog():
 def test_cpo_quota_backlog():
     cpo_quota_backlog(seed=1)
 
+
 def plot_experiment():
     #fdir = ['trpo_backlog_1', 'cpo_backlog_2', 'saute_trpo_backlog_19']
     plotter = Plotter(fdir=None)
-    #plotter.plot_returns()
+    plotter.plot_returns()
     #plotter.plot_constraint_vals()
-    #plotter.plot_costs()
-    plotter.plot_distribution_progression(num_points=400)
+    plotter.plot_costs()
+    #plotter.plot_distribution_progression(num_points=400)
     #plotter.plot_final_distribution()
 
 if __name__ == '__main__':
     #test_trpo_backlog()
     #test_cpo_backlog()
     #test_saute_trpo_backlog()
-    test_cpo_quota_backlog()
+    #test_cpo_quota_backlog()
     plot_experiment()
