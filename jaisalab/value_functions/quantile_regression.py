@@ -5,15 +5,16 @@ import numpy as np
 
 #jaisalab
 from jaisalab.value_functions.modules import DistributionalModule
+from jaisalab.utils.math import standard_deviation
 
 #garage
 from garage.torch.value_functions.value_function import ValueFunction
 
 
-class QUOTAValueFunction(ValueFunction):
-    """QUOTA Value Function with Model.
+class QRValueFunction(ValueFunction):
+    """Quantile Regression Value Function with Model.
 
-    Paper: https://arxiv.org/pdf/1811.02073.pdf
+    Paper: https://arxiv.org/pdf/1710.10044.pdf
 
     Args:
         env_spec (EnvSpec): Environment specification.
@@ -60,7 +61,7 @@ class QUOTAValueFunction(ValueFunction):
                  output_w_init=nn.init.xavier_uniform_,
                  output_b_init=nn.init.zeros_,
                  layer_normalization=False,
-                 name='QUOTAValueFunction'):
+                 name='QRValueFunction'):
         super().__init__(env_spec, name)
 
         input_dim = env_spec.observation_space.flat_dim
@@ -86,7 +87,8 @@ class QUOTAValueFunction(ValueFunction):
         self.Vmax = Vmax
         self.delta_z = (Vmax-Vmin)/(N-1)
         self.V_range = torch.tensor([self.Vmin + i*self.delta_z for i in range(self.N)])
-        self.last_log_dist = None
+        # set cumulative density
+        self.cumulative_density = torch.FloatTensor((2 * np.arange(self.N) + 1) / (2.0 * self.N))
     
     def forward(self, obs, log_output=False, dist_output=False):
         """Forward call to model."""
@@ -105,6 +107,19 @@ class QUOTAValueFunction(ValueFunction):
         else: 
             V = torch.matmul(V_dist, z_dist).view(obs.shape[:-1])
             return V
+        
+    def get_mean_std(self, obs):
+        #retrieve quantile values to estimate probabilities for
+        z_dist = self.V_range.repeat(*obs.shape[:-1], 1)
+        z_dist = torch.unsqueeze(z_dist, -1).float()
+        
+        with torch.no_grad():
+            V_dist, V_log_dist = self.module.forward(obs)
+
+        mean = torch.matmul(V_dist, z_dist)
+        std = standard_deviation(z_dist, V_dist)
+
+        return mean, std
 
     def compute_loss(self, obs, next_obs, rewards, 
                      masks, target_vf, gamma):
@@ -116,23 +131,17 @@ class QUOTAValueFunction(ValueFunction):
         for j in range(self.N):
             T_zj = torch.clamp(rewards + gamma * (1-masks) * (self.Vmin + j*self.delta_z), min = self.Vmin, max = self.Vmax)
             bj = (T_zj - self.Vmin)/self.delta_z
-            l = bj.floor().long()
-            u = bj.ceil().long()
+            l = bj.floor().long().unsqueeze(1)
+            u = bj.ceil().long().unsqueeze(1)
 
-            V_narrowed = torch.narrow(V_target, -1, j, j)
-            print(V_narrowed.shape)
-            print(m.shape)
-            raise Exception
+            V_narrowed = torch.narrow(V_target, -1, j, 1)
             mask_Q_l = torch.zeros(m.size())
-            mask_Q_l.scatter_(1, l, V_narrowed.unsqueeze(1))
+            mask_Q_l.scatter_(1, l, V_narrowed.squeeze(1))
             mask_Q_u = torch.zeros(m.size())
-            mask_Q_u.scatter_(1, u, V_narrowed.unsqueeze(1))
-            m += mask_Q_l*(u.float() + (l == u).float()-bj.float())
-            m += mask_Q_u*(-l.float()+bj.float())
+            mask_Q_u.scatter_(1, u, V_narrowed.squeeze(1))
+            m += torch.matmul((u.float() + (l == u).float()-bj.float()), mask_Q_l)
+            m += torch.matmul((-l.float()+bj.float()), mask_Q_u)
 
-        print(V_log_dist_pred.shape)
-        print(m.shape)
         #calculate Huber loss
-        loss = - torch.sum(torch.sum(torch.mul(V_log_dist_pred, m),-1),-1) / obs.shape[0]
-
-        return None
+        loss = - torch.mean(torch.sum(torch.sum(torch.mul(V_log_dist_pred, m),-1),-1) / obs.shape[0])
+        return loss

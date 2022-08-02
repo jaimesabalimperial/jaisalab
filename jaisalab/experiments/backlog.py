@@ -239,13 +239,13 @@ def cpo_quota_backlog(ctxt=None, seed=1, n_epochs=600):
                                output_nonlinearity=None)
 
     value_function = QUOTAValueFunction(env_spec=env.spec,
-                                        N=102,
+                                        N=60,
                                         hidden_sizes=(64, 64),
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
 
     safety_baseline = QUOTAValueFunction(env_spec=env.spec,
-                                         N=102, 
+                                         N=60, 
                                          hidden_sizes=(64, 64),                                        
                                          hidden_nonlinearity=torch.tanh,
                                          output_nonlinearity=None)

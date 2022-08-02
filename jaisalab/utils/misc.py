@@ -36,7 +36,7 @@ def initialize_weights_he(m):
         if m.bias is not None:
             torch.nn.init.constant_(m.bias, 0)
 
-def soft_update(self, local_model, target_model, tau=0.1):
+def soft_update(local_model, target_model, tau=0.1):
     for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
         target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
 

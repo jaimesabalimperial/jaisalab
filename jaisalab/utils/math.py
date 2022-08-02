@@ -20,3 +20,9 @@ def log_likelihood(xs, dist_info):
     return - np.sum(log_stds, axis=-1) - \
             0.5 * np.sum(np.square(zs), axis=-1) - \
             0.5 * means.shape[-1] * np.log(2 * np.pi)
+
+def standard_deviation(values, probabilities):
+    mu = torch.matmul(probabilities, values)
+    var = torch.sum((values-mu).pow(2)*probabilities)
+    std = torch.sqrt(var)
+    return std
