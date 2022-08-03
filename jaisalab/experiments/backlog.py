@@ -240,13 +240,13 @@ def dcpo_backlog(ctxt=None, seed=1, n_epochs=600):
                                output_nonlinearity=None)
 
     value_function = QRValueFunction(env_spec=env.spec,
-                                        N=60,
+                                        N=102,
                                         hidden_sizes=(64, 64),
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
 
     safety_baseline = QRValueFunction(env_spec=env.spec,
-                                         N=60, 
+                                         N=102, 
                                          hidden_sizes=(64, 64),                                        
                                          hidden_nonlinearity=torch.tanh,
                                          output_nonlinearity=None)

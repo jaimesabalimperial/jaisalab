@@ -37,6 +37,7 @@ class Plotter():
                  dtype='np', savefig=True, **kwargs):
 
         self.data_dir = data_dir
+        algorithm_names = ['cpo', 'trpo']
 
         if fdir is not None: 
             if isinstance(fdir, (list, tuple)):
@@ -44,7 +45,14 @@ class Plotter():
                 if len(fdir) > 4:
                     raise ValueError("Please don't input more than 4 experiments at once.")
                 split_exp_names =[exp.split('_') for exp in fdir] 
-                self._exp_labels = [exp_name[0] for exp_name in split_exp_names]
+
+                self._exp_labels = []
+                for exp_name in split_exp_names:
+                    if exp_name[1] in algorithm_names:
+                        self._exp_labels.append('_'.join(exp_name[:2]))
+                    else: 
+                        self._exp_labels.append(exp_name[0])
+
                 self._savefig_name = '_'.join(self._exp_labels)
             else: 
                 self.fdir = data_dir+'/'+fdir
@@ -235,8 +243,10 @@ class Plotter():
         
         return quantile_probs, quantile_vals
 
-    def _plot(self, x_array, y_array, ylabel, 
-              std=None, title=None):
+    def _plot(self, x_array, y_array, ylabel, std=None, title=None):
+        """Custom plotting function that allows for multiple experiments to be 
+        plotted on the same figure if specified in the fdir argument of the constructor
+        method."""
         fig = plt.figure()
         plt.grid()
         if isinstance(self.fdir, (list, tuple)): #multiple experiments to plot
@@ -264,6 +274,7 @@ class Plotter():
         plt.legend(loc='best')
 
     def plot_returns(self):
+        """Plot progression of returns throughout epochs."""
         y_column = 'Evaluation/AverageReturn'
         std_column = 'Evaluation/StdReturn'
         ylabel = 'Average Return'
@@ -274,6 +285,7 @@ class Plotter():
         self._savefig(flag=1)
 
     def plot_costs(self):
+        """Plot progression of costs throughout epochs."""
         y_column = 'Evaluation/AverageSafetyReturn'
         std_column = 'Evaluation/StdSafetyReturn'
         ylabel = 'Average Costs'
@@ -284,7 +296,7 @@ class Plotter():
         self._savefig(flag=6)
 
     def plot_constraint_vals(self):
-        """"""
+        """Plot progression of constraint values throughout epochs."""
         y_column = 'Evaluation/AverageDiscountedSafetyReturn'
         ylabel = 'Constraint Value'
 
@@ -294,13 +306,14 @@ class Plotter():
         self._savefig(flag=3)
     
     def _gaussian(self, mean, std):
-        """"""
+        """Retrieve a normal distribution function from a mean and standard deviation."""
         def normal(x):
             return (1/std*np.sqrt(2*np.pi))*np.exp(-(x - mean)**2 / (2*std**2))
         return normal
 
     def plot_gaussian_progression(self, eps=1.0, num_points=300, duration=5):
-        """"""
+        """Plot the progression of normal distributions from learned means 
+        and standard deviations throughout learning."""
         mean_returns_array, std_returns_array = self._get_distribution_data()
         gaussians = [self._gaussian(mean, std) for mean, std in zip(mean_returns_array, std_returns_array)]
         min_x = min([mean - eps*std for mean, std in zip(mean_returns_array, std_returns_array)])
@@ -314,14 +327,14 @@ class Plotter():
             fig.clear()
             plt.ylim(0,1)
             p = plt.plot(x_array, y_arrays[i], c='r')
-
-        plt.xlabel('Returns')
-        plt.ylabel('Probability')
+            plt.xlabel('Returns')
+            plt.ylabel('Probability')
         interval = duration*1000 / len(y_arrays)
         animator = ani.FuncAnimation(fig, dist_progress, interval=interval, save_count=len(y_arrays))
         self._savefig(flag=7, animator=animator)
 
     def plot_final_distribution(self):
+        """Plot final normal distribution after learning."""
         mean_returns_array, std_returns_array = self._get_distribution_data()
         last_mean, last_std = mean_returns_array[-1], std_returns_array[-1]
         gaussian = self._gaussian(last_mean, last_std)
@@ -334,19 +347,22 @@ class Plotter():
         plt.ylabel('Probability')
         self._savefig(flag=8)
 
-    def plot_quantiles_progression(self, Vmin=-800, Vmax=800, duration=5):
+    def plot_quantiles_progression(self, Vmin=-800, Vmax=800, interval=20):
+        """Plot progression of quantile value distribution throughout learning."""
         quantile_probs, quantile_vals = self._get_quantiles_data(Vmin, Vmax)
 
         fig = plt.figure()
         def dist_progress(i):
             fig.clear()
             plt.ylim(0,1)
-            p = plt.bar(quantile_vals, quantile_probs[i], color='r', width=20)
-        
-        plt.xlabel('Value')
-        plt.ylabel('Probability')
-        interval = duration*1000 / len(quantile_probs)
-        animator = ani.FuncAnimation(fig, dist_progress, interval=interval, save_count=len(quantile_probs))
+            p = plt.bar(quantile_vals, quantile_probs[i*interval], color='r', width=20)
+            plt.title(f'State-Return Distribution for initial IMP state at epoch: {i*interval}')
+            plt.xlabel('Value')
+            plt.ylabel('Probability')
+
+        time_interval = 5000 / len(quantile_probs)
+        save_count = len(quantile_probs) // interval
+        animator = ani.FuncAnimation(fig, dist_progress, interval=time_interval, save_count=save_count)
         self._savefig(flag=9, animator=animator)
 
     def plot_kl(self):

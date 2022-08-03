@@ -5,14 +5,19 @@ import numpy as np
 
 #jaisalab
 from jaisalab.value_functions.modules import DistributionalModule
-from jaisalab.utils.math import standard_deviation
+from jaisalab.utils.math import calc_mean_std, log_prob
 
 #garage
 from garage.torch.value_functions.value_function import ValueFunction
 
 
 class QRValueFunction(ValueFunction):
-    """Quantile Regression Value Function with Model.
+    """Quantile Regression Value Function with Model. We offer 
+    a slight modification in terms of the value function, where instead 
+    of calculating the quantile Huber loss we use a surrogate loss in 
+    terms of the log likelihood of obtaining the observed returns with 
+    the current predictions of the mean and standard deviations from the 
+    estimated quantile distribution.
 
     Paper: https://arxiv.org/pdf/1710.10044.pdf
 
@@ -115,10 +120,9 @@ class QRValueFunction(ValueFunction):
         z_dist = torch.unsqueeze(z_dist, -1).float()
 
         with torch.no_grad():
-            V_dist, V_log_dist = self.module.forward(obs)
+            V_dist = self.forward(obs, dist_output=True)
 
-        mean = torch.matmul(V_dist, z_dist)
-        std = standard_deviation(z_dist, V_dist)
+        mean, std = calc_mean_std(V_dist, z_dist) #get mean and standard deviation
 
         return mean, std
     
@@ -132,27 +136,54 @@ class QRValueFunction(ValueFunction):
 
         return V_dist
 
+    def compute_loss(self, obs, returns):
+        #retrieve quantile values to estimate probabilities for
+        z_dist = self.V_range.repeat(*obs.shape[:-1], 1)
+        z_dist = torch.unsqueeze(z_dist, -1).float()
+
+        V_dist = self.forward(obs, dist_output=True)
+        mean, std = calc_mean_std(V_dist, z_dist) #get mean and standard deviation
+        ll = log_prob(returns.reshape(-1, 1), mean, std)
+        loss = -ll.mean()
+        return loss
+"""
     def compute_loss(self, obs, next_obs, rewards, 
                      masks, target_vf, gamma):
-        """Compute quantile regression loss."""
+        '''Compute quantile regression loss.'''
         V_log_dist_pred = self.forward(obs, log_output=True) 
+        V_log_dist_pred = V_log_dist_pred.squeeze(1)
         V_target = target_vf.forward(next_obs, dist_output=True) #calculate value using target network
 
         m = torch.zeros(*obs.shape[:-1], self.N)
         for j in range(self.N):
             T_zj = torch.clamp(rewards + gamma * (1-masks) * (self.Vmin + j*self.delta_z), min = self.Vmin, max = self.Vmax)
-            bj = (T_zj - self.Vmin)/self.delta_z
             l = bj.floor().long().unsqueeze(1)
-            u = bj.ceil().long().unsqueeze(1)
+            bj = (T_zj - self.Vmin)/self.delta_z
 
             V_narrowed = torch.narrow(V_target, -1, j, 1)
-            mask_Q_l = torch.zeros(m.size())
+            u = bj.ceil().long().unsqueeze(1)
             mask_Q_l.scatter_(1, l, V_narrowed.squeeze(1))
             mask_Q_u = torch.zeros(m.size())
             mask_Q_u.scatter_(1, u, V_narrowed.squeeze(1))
             m += torch.matmul((u.float() + (l == u).float()-bj.float()), mask_Q_l)
             m += torch.matmul((-l.float()+bj.float()), mask_Q_u)
+            mask_Q_l = torch.zeros(m.size())
 
-        #calculate Huber loss
-        loss = - torch.mean(torch.sum(torch.sum(torch.mul(V_log_dist_pred, m),-1),-1) / obs.shape[0])
+        #calculate quantile-regression loss
+        loss = - torch.sum(torch.sum(torch.mul(V_log_dist_pred, m),-1),-1) / obs.shape[0]
+
         return loss
+"""
+
+"""
+    def compute_loss(self, obs, returns):
+        #retrieve quantile values to estimate probabilities for
+        z_dist = self.V_range.repeat(*obs.shape[:-1], 1)
+        z_dist = torch.unsqueeze(z_dist, -1).float()
+
+        V_dist = self.forward(obs, dist_output=True)
+        mean, std = calc_mean_std(V_dist, z_dist) #get mean and standard deviation
+        ll = log_prob(returns.reshape(-1, 1), mean, std)
+        loss = -ll.mean()
+        return loss
+"""

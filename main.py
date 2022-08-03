@@ -17,14 +17,14 @@ def test_dcpo_backlog():
 
 
 def plot_experiment():
-    fdir = ['dcpo_backlog_2']#'trpo_backlog_70']#, 'cpo_backlog_2', 'saute_trpo_backlog_19', 'dcpo_backlog_1']
-    plotter = Plotter(fdir=fdir)
+    fdir = ['trpo_backlog_5', 'cpo_backlog_2', 'saute_trpo_backlog_19', 'dcpo_backlog_34']
+    plotter = Plotter(fdir=None)
     #plotter.plot_returns()
     #plotter.plot_constraint_vals()
     #plotter.plot_costs()
     #plotter.plot_gaussian_progression(num_points=400)
     #plotter.plot_final_distribution()
-    plotter.plot_quantiles_progression()
+    plotter.plot_quantiles_progression(interval=10)
 
 if __name__ == '__main__':
     #test_trpo_backlog()
