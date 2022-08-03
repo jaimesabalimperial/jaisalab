@@ -11,7 +11,6 @@ bravado-core==5.17.0
 brotlipy==0.7.0
 cached-property==1.5.2
 certifi==2022.5.18.1
-daal4py==2021.5.0
 dm-control==1.0.3
 dm-env==1.5
 dm-tree==0.1.7
