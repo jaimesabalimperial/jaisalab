@@ -16,15 +16,9 @@ pep8==1.7.1
 pep8-naming==0.7.0
 prettytensor @ git+https://github.com/neocxi/prettytensor.git@564941199cdef8a9c8a570de51e04ce860714ed1
 pytest==7.1.1
-pytest-cov==3.0.0
-pytest-forked==1.4.0
-pytest-rerunfailures==10.2
-pytest-timeout==2.1.0
-pytest-xdist==2.5.0
-PyYAML==6.0
 tabulate==0.8.9
 termcolor==1.1.0
-torch==1.7.1
+torch==1.11.0
 Tree==0.2.4
 virtualenv==20.14.1
 virtualenv-clone==0.5.7
