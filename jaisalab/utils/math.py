@@ -1,6 +1,8 @@
 import torch
 import math
 import numpy as np
+from sympy import ShapeError
+from numbers import Number
 
 def normal_entropy(std):
     var = std.pow(2)
@@ -13,16 +15,24 @@ def normal_log_density(x, mean, log_std, std):
     #pdb.set_trace()
     return log_density.sum(1, keepdim=True)
 
-def log_likelihood(xs, dist_info):
-    means = dist_info["mean"]
-    log_stds = dist_info["log_std"]
-    zs = (xs - means) / np.exp(log_stds)
-    return - np.sum(log_stds, axis=-1) - \
-            0.5 * np.sum(np.square(zs), axis=-1) - \
-            0.5 * means.shape[-1] * np.log(2 * np.pi)
+def log_prob(value, mean, std):
+    # compute the variance
+    var = (std ** 2)
+    log_scale = math.log(std) if isinstance(std, Number) else std.log()
+    return -((value - mean) ** 2) / (2 * var) - log_scale - math.log(math.sqrt(2 * math.pi))
 
-def standard_deviation(values, probabilities):
-    mu = torch.matmul(probabilities, values)
-    var = torch.sum((values-mu).pow(2)*probabilities)
+def _std_shape_check(a, b):
+    if not (a.shape[-2] == 1 and b.shape[-1] == 1 
+            and a.shape[-1] == b.shape[-2]):
+        raise ShapeError('Matrix multiplication should return a single value.')
+
+def calc_mean_std(probabilities, values):
+    """Calculates the mean and standard deviation of a 
+    distribution of quantiles from their values and probabilities."""
+    _std_shape_check(probabilities, values)
+    mu = torch.matmul(probabilities, values).squeeze(-1)
+    values = values.view(-1, values.shape[-2])
+    probabilities = probabilities.view(-1, probabilities.shape[-1])
+    var = torch.sum(torch.mul(torch.subtract(values, mu).pow(2), probabilities), -1).unsqueeze(-1)
     std = torch.sqrt(var)
-    return std
+    return mu, std
