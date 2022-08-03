@@ -161,6 +161,7 @@ class DistributionalModule(nn.Module):
     Args:
         input_dim (int): Input dimension of the model.
         output_dim (int): Output dimension of the model.
+        N (int): Number of quantiles to estimate.
         hidden_sizes (list[int]): Output dimension of dense layer(s) for
             the MLP for mean. For example, (32, 32) means the MLP consists
             of two hidden layers, each with 32 hidden units.
@@ -182,18 +183,6 @@ class DistributionalModule(nn.Module):
         output_b_init (callable): Initializer function for the bias
             of output dense layer(s). The function should return a
             torch.Tensor.
-        learn_std (bool): Is std trainable.
-        init_std (float): Initial value for std.
-            (plain value - not log or exponentiated).
-        min_std (float): If not None, the std is at least the value of min_std,
-            to avoid numerical issues (plain value - not log or exponentiated).
-        max_std (float): If not None, the std is at most the value of max_std,
-            to avoid numerical issues (plain value - not log or exponentiated).
-        std_parameterization (str): How the std should be parametrized. There
-            are two options:
-            - exp: the logarithm of the std will be stored, and applied a
-               exponential transformation
-            - softplus: the std will be computed as log(1+exp(x))
         layer_normalization (bool): Bool for using layer normalization or not.
     """
 

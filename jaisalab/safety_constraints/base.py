@@ -11,7 +11,16 @@ from garage.torch._functions import zero_optim_grads
 from jaisalab.utils.misc import soft_update
 
 class BaseConstraint(object):
-
+    """Base class for any safety constraint of an environment.
+    
+    Args:
+        max_value (float): Maximum value for the safety surrogate loss (Default=1e-3).
+        baseline (garage.torch.value_functions.ValueFunction): Safety baseline to calculate 
+                safety advantages. 
+        baseline_optimizer (torch.optim.Optimizer): Safety baseline optimizer. 
+        penalty (float): Penalty for violating constraint. 
+        discount (float): Safety discount factor. 
+    """
     def __init__(self, max_value=1., baseline=None, 
                  baseline_optimizer=None, penalty=None, 
                  discount=1., **kwargs):
@@ -19,7 +28,6 @@ class BaseConstraint(object):
         self.max_value = max_value
         self.has_baseline = baseline is not None
         self.discount = discount
-        self.target_baseline = None
 
         if self.has_baseline:
             self.baseline = baseline
@@ -43,27 +51,14 @@ class BaseConstraint(object):
         """Abstract method that all safety constraints must have."""
         raise NotImplementedError
 
-    def _train_safety_baseline(self, obs, next_obs, safety_returns,
-                               safety_rewards, masks):
+    def _train_safety_baseline(self, obs, safety_returns):
         """Train safety baseline."""
         if self.has_baseline:
             # pylint: disable=protected-access
             zero_optim_grads(self.baseline_optimizer._optimizer)
-            args, varargs, varkw, defaults = inspect.getargspec(self.baseline.compute_loss)
-
-            #differentiate between Q-learning vs policy-gradient optimization steps
-            if len(args)>3:
-                loss = self.baseline.compute_loss(obs, next_obs, safety_rewards,
-                                                  masks, target_vf=self.target_baseline, 
-                                                  gamma=self.discount)
-            else: 
-                loss = self.baseline.compute_loss(obs, safety_returns) 
-
+            loss = self.baseline.compute_loss(obs, safety_returns) 
             loss.backward()
             self.baseline_optimizer.step()
-
-            if self.target_baseline is not None:
-                soft_update(self.baseline, self.target_baseline)
         else: 
             logger.log("Safety baseline has not been inputted...")
 

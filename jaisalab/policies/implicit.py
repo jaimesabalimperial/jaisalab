@@ -1,6 +1,7 @@
 """Semi-Implicit Actor (SIA). 
 
-Implementation of SIA policy of: NEED TO PUT arxiv LINK. 
+Implementation of SIA policy: 
+https://proceedings.neurips.cc/paper/2020/file/4f20f7f5d2e7a1b640ebc8244428558c-Paper.pdf
 """
 from sympy import ShapeError
 import torch
@@ -12,10 +13,12 @@ from garage.torch.distributions import TanhNormal
 from garage.torch.modules.mlp_module import MLPModule
 
 class SemiImplicitPolicy(StochasticPolicy):
-    """MLP whose outputs are fed into a Normal distribution..
+    """MLP whose outputs are fed into a semi-implicit distribution..
 
-    A policy that contains a MLP to make prediction based on a gaussian
-    distribution.
+    A policy that approximates a semi-implicit distribution which mixes 
+    the policy parameters with a reparametrizable distribution that is 
+    not constrained by an analytic density function (and thus the 
+    policies' marginal distribution is implicit).
 
     Args:
         env_spec (EnvSpec): Environment specification.
@@ -150,7 +153,6 @@ class SemiImplicitPolicy(StochasticPolicy):
     
     def _entropy(self, state, action, pre_tanh_action):
         """Calculate entropy of choosing action in a state."""
-
         #handle shape of inputs for noise addition
         batch_size = state.shape[0]
         if len(state.shape) == 3: 

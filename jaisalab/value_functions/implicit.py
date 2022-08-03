@@ -14,6 +14,8 @@ from garage.torch.value_functions.value_function import ValueFunction
 #jaisalab
 from jaisalab.value_functions.modules import IQNModule
 
+#TODO: NEED TO FIX
+
 class IQNValueFunction(ValueFunction): 
     """Implicit Quantile Network implementation. A slight modification 
     is made in that we are learning the value function rather than the 

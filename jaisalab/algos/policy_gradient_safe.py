@@ -100,15 +100,6 @@ class PolicyGradientSafe(VPG):
         self.center_safety_vals = center_safety_vals
         self._is_saute = is_saute
 
-        #should modify this if more vf's are implemented that use the q-learning update
-        self.is_q_update = False #isinstance(value_function, QRValueFunction)
-
-        if self.is_q_update: 
-            self._target_vf = copy.deepcopy(value_function)
-            self.safety_constraint.target_baseline = copy.deepcopy(self.safety_constraint.baseline)
-        else: 
-            self._target_vf = None
-
         #environment-specific attributes (change or ignore at will)
         if self.env_spec.observation_space.flat_dim == 33:
             self.initial_state = torch.tensor([100., 100., 200., 0., 0., 0., 0., 0., 0., 0., 
@@ -216,7 +207,6 @@ class PolicyGradientSafe(VPG):
         returns = np_to_torch(np.stack([discount_cumsum(reward, self.discount)
                               for reward in eps.padded_rewards]))
         valids = eps.lengths
-        masks = eps.env_infos['mask']
 
         with torch.no_grad():
             baselines = self._value_function(obs)
@@ -252,31 +242,19 @@ class PolicyGradientSafe(VPG):
         #compute relevant metrics prior to training for logging
         with torch.no_grad():
             policy_loss_before = self._compute_loss_with_adv(obs_flat, actions_flat, rewards_flat, advs_flat)
-
-            if self.is_q_update:
-                vf_loss_before = self._value_function.compute_loss(obs_flat, next_obs_flat, rewards_flat, masks, 
-                                                                   target_vf=self._target_vf, gamma=self._discount)
-            else: 
-                vf_loss_before = self._value_function.compute_loss(obs_flat, returns_flat)
-
+            vf_loss_before = self._value_function.compute_loss(obs_flat, returns_flat)
             kl_before = self._compute_kl_constraint(obs)
 
         #train policy, value function, safety baseline
-        self._train(obs_flat, next_obs_flat, actions_flat, rewards_flat, returns_flat,
+        self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
                     advs_flat, safety_rewards_flat, safety_returns_flat,
-                    safety_advs_flat, masks)
+                    safety_advs_flat)
 
         #compute relevant metrics after training
         with torch.no_grad():
             policy_loss_after = self._compute_loss_with_adv(
                 obs_flat, actions_flat, rewards_flat, advs_flat)
-
-            if self.is_q_update:
-                vf_loss_after = self._value_function.compute_loss(obs_flat, next_obs_flat, rewards_flat, masks, 
-                                                                   target_vf=self._target_vf, gamma=self._discount)
-            else: 
-                vf_loss_after = self._value_function.compute_loss(obs_flat, returns_flat)
-
+            vf_loss_after = self._value_function.compute_loss(obs_flat, returns_flat)
             kl_after = self._compute_kl_constraint(obs)
             policy_entropy = self._compute_policy_entropy(obs)
 
@@ -319,8 +297,8 @@ class PolicyGradientSafe(VPG):
         return np.mean(undiscounted_returns)
     
 
-    def _train(self, obs, next_obs, actions, rewards, returns, advs, 
-               safety_rewards, safety_returns, safety_advs, masks):
+    def _train(self, obs, actions, rewards, returns, advs, 
+               safety_rewards, safety_returns, safety_advs):
         r"""Train the policy and value function with minibatch.
 
         Args:
@@ -338,57 +316,11 @@ class PolicyGradientSafe(VPG):
         for dataset in self._policy_optimizer.get_minibatch(
                 obs, actions, rewards, advs, safety_rewards, safety_advs):
             self._train_policy(*dataset)
-        for dataset in self._vf_optimizer.get_minibatch(
-                obs, next_obs, returns, rewards, masks):
+        for dataset in self._vf_optimizer.get_minibatch(obs, returns):
             self._train_value_function(*dataset)
-        for dataset in self._safety_optimizer.get_minibatch(
-                obs, next_obs, safety_returns, safety_rewards, masks):
+        for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
             self.safety_constraint._train_safety_baseline(*dataset)
 
-    def _train_value_function(self, obs, next_obs, 
-                              returns, rewards, masks):
-        r"""Train the value function. Here we support both the Q-learning 
-        and the policy-gradient optimization steps for the value function.
-
-        In Q-learning, we use the temporal-difference (TD)-error to calculate 
-        the loss which requires usage of the next observations, actions, and 
-        observations. In policy gradient methods, the value function is usually
-        optimized through a surrogate loss calculated through the log-likelihood 
-        of obtaining the observed returns under the current value function. 
-
-        Args:
-            obs (torch.Tensor): Observation from the environment
-                with shape :math:`(N, O*)`.
-            next_obs (torch.Tensor): Next observations from the environment
-                with shape :math:`(N, )`.            
-            returns (torch.Tensor): Acquired returns
-                with shape :math:`(N, )`.
-
-        Returns:
-            torch.Tensor: Calculated mean scalar value of value function loss
-                (float).
-
-        """
-        # pylint: disable=protected-access
-        zero_optim_grads(self._vf_optimizer._optimizer)
-
-        #differentiate between Q-learning vs policy-gradient optimization steps
-        if self.is_q_update:
-            loss = self._value_function.compute_loss(obs, next_obs, rewards, masks, 
-                                                     target_vf=self._target_vf, gamma=self._discount)
-        else:
-            loss = self._value_function.compute_loss(obs, returns)
-
-        #backpropagate loss and perform optimization step
-        loss.backward()
-        self._vf_optimizer.step()
-
-        #soft update on target vf parameters
-        if self._target_vf is not None:
-            soft_update(self._value_function, self._target_vf)
-
-        return loss
-    
 
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages):

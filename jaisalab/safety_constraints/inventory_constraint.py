@@ -14,7 +14,7 @@ class SoftInventoryConstraint(BaseConstraint):
         max_value (float): Maximum value for the safety surrogate loss (Default=1e-3).
         baseline (garage.torch.value_functions.ValueFunction): Safety baseline to calculate 
                 safety advantages. 
-        baseline_optimizer (garage.torch.optimizers.OptimizerWrapper): Safety baseline optimizer. 
+        baseline_optimizer (torch.optim.Optimizer): Safety baseline optimizer. 
         penalty (float): Penalty for violating constraint. 
     """
     def __init__(self, max_value=1e-3, baseline=None, 

@@ -17,7 +17,7 @@ from jaisalab.algos.cpo import CPO
 from jaisalab.algos.trpo import SafetyTRPO
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
-from jaisalab.value_functions import GaussianValueFunction, QRValueFunction, IQNValueFunction
+from jaisalab.value_functions import GaussianValueFunction, QRValueFunction
 from jaisalab.policies import SemiImplicitPolicy, GaussianPolicy
 
 #garage
@@ -110,7 +110,7 @@ def trpo_backlog(ctxt=None, seed=1, n_epochs=600):
 
     trainer = Trainer(ctxt)
 
-    policy = SemiImplicitPolicy(env.spec,
+    policy = GaussianPolicy(env.spec,
                                hidden_sizes=[64, 64],
                                noise_dim=10, 
                                noise_num=5,

@@ -18,7 +18,7 @@ def test_dcpo_backlog():
 
 def plot_experiment():
     fdir = ['trpo_backlog_5', 'cpo_backlog_2', 'saute_trpo_backlog_19', 'dcpo_backlog_34']
-    plotter = Plotter(fdir=None)
+    plotter = Plotter(fdir=fdir)
     #plotter.plot_returns()
     #plotter.plot_constraint_vals()
     #plotter.plot_costs()
@@ -28,7 +28,7 @@ def plot_experiment():
 
 if __name__ == '__main__':
     #test_trpo_backlog()
-    #test_cpo_backlog()
+    test_cpo_backlog()
     #test_saute_trpo_backlog()
     #test_dcpo_backlog()
     plot_experiment()

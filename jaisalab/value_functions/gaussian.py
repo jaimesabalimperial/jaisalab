@@ -1,7 +1,4 @@
-"""Semi-Implicit Actor (SIA). 
-
-Implementation of SIA policy of: NEED TO PUT arxiv LINK. 
-"""
+"""Gaussian Value Function."""
 import torch
 from torch import nn
 from torch.distributions import Normal

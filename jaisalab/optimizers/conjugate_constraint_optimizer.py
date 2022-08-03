@@ -28,9 +28,11 @@ class ConjugateConstraintOptimizer(Optimizer):
     The search direction is computed using a conjugate gradient algorithm,
     which gives x = A^{-1}g, where A is a second order approximation of the
     constraint and g is the gradient of the loss function.
+
+    Partially taken from https://github.com/jachiam/cpo.
+
     Args:
         params (iterable): Iterable of parameters to optimize.
-        max_constraint_value (float): Maximum constraint value.
         cg_iters (int): The number of CG iterations used to calculate A^-1 g
         max_backtracks (int): Max number of iterations for backtrack
             linesearch.
@@ -48,15 +50,13 @@ class ConjugateConstraintOptimizer(Optimizer):
                  max_backtracks=25,
                  backtrack_ratio=0.1,
                  hvp_reg_coeff=1e-5,
-                 accept_violation=False,
-                 grad_norm=False):
+                 accept_violation=False):
         super().__init__(params, {})
         self._cg_iters = cg_iters
         self._max_backtracks = max_backtracks
         self._backtrack_ratio = backtrack_ratio
         self._hvp_reg_coeff = hvp_reg_coeff
         self._accept_violation = accept_violation
-        self._grad_norm = grad_norm
 
     def _get_optimal_step_dir(self, f_Ax, params, step_dir, 
                               safety_loss_grad, lin_constraint):
@@ -244,8 +244,7 @@ class ConjugateConstraintOptimizer(Optimizer):
             'max_backtracks': self._max_backtracks,
             'backtrack_ratio': self._backtrack_ratio,
             'hvp_reg_coeff': self._hvp_reg_coeff,
-            'accept_violation': self._accept_violation,
-            'grad_norm': self._grad_norm
+            'accept_violation': self._accept_violation
         }
 
     @state.setter
@@ -259,7 +258,6 @@ class ConjugateConstraintOptimizer(Optimizer):
         self._backtrack_ratio = state.get('backtrack_ratio', 0.8)
         self._hvp_reg_coeff = state.get('hvp_reg_coeff', 1e-5)
         self._accept_violation = state.get('accept_violation', False)
-        self._grad_norm = state.get('grad_norm', False)
 
     def __setstate__(self, state):
         """Restore the optimizer state.

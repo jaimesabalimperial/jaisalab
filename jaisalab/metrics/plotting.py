@@ -306,14 +306,22 @@ class Plotter():
         self._savefig(flag=3)
     
     def _gaussian(self, mean, std):
-        """Retrieve a normal distribution function from a mean and standard deviation."""
+        """Retrieve a normal distribution function from a mean and 
+        standard deviation."""
         def normal(x):
             return (1/std*np.sqrt(2*np.pi))*np.exp(-(x - mean)**2 / (2*std**2))
         return normal
 
     def plot_gaussian_progression(self, eps=1.0, num_points=300, duration=5):
         """Plot the progression of normal distributions from learned means 
-        and standard deviations throughout learning."""
+        and standard deviations throughout learning.
+        
+        Args: 
+            eps (float, int): Factor proportional to standard deviation by which to 
+                 extend domain of plots.
+            num_points (int): Points used in creating gaussian distribution approximation.
+            duration (int): Duration of animation.
+        """
         mean_returns_array, std_returns_array = self._get_distribution_data()
         gaussians = [self._gaussian(mean, std) for mean, std in zip(mean_returns_array, std_returns_array)]
         min_x = min([mean - eps*std for mean, std in zip(mean_returns_array, std_returns_array)])
