@@ -86,7 +86,7 @@ def cpo_backlog(ctxt=None, seed=1, n_epochs=800):
     trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 @wrap_experiment
-def trpo_backlog(ctxt=None, seed=1, n_epochs=600):
+def trpo_backlog(ctxt=None, seed=1, n_epochs=800):
     """Train TRPO with IMP environment.
 
     Args:
@@ -146,7 +146,7 @@ def trpo_backlog(ctxt=None, seed=1, n_epochs=600):
     trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 @wrap_experiment
-def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
+def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=800):
     """Train TRPO with InvertedDoublePendulum-v2 environment.
 
     Args:
@@ -208,7 +208,7 @@ def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=600):
 
 
 @wrap_experiment
-def dcpo_backlog(ctxt=None, seed=1, n_epochs=600):
+def dcpo_backlog(ctxt=None, seed=1, n_epochs=800):
     """Train CPO with InvManagementBacklogEnv environment.
 
     Args:

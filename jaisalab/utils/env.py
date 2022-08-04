@@ -24,7 +24,7 @@ def env_setup(env):
         env = gym.make(env)
 
     env = NpWrapper(env)
-    env = normalize(GymEnv(env))
+    env = normalize(GymEnv(env, max_episode_length=env.spec.max_episode_length))
 
     return env
 
