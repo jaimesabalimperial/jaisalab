@@ -40,7 +40,7 @@ class Plotter():
         algorithm_names = ['cpo', 'trpo']
 
         if fdir is not None: 
-            if isinstance(fdir, (list, tuple)):
+            if isinstance(fdir, (list, tuple)): #multiple experiments inputted
                 self.fdir = [data_dir+'/'+exp for exp in fdir]
                 if len(fdir) > 4:
                     raise ValueError("Please don't input more than 4 experiments at once.")
@@ -55,12 +55,14 @@ class Plotter():
 
                 self._savefig_name = '_'.join(self._exp_labels)
             else: 
+                #case where a single experiment is inputted
                 self.fdir = data_dir+'/'+fdir
+                self.dir_name = self.fdir.split('/')[-1]
                 split_exp_name = self.dir_name.split('_')
                 self._exp_label = split_exp_name[0]
                 self._savefig_name = fdir
         else: 
-            if plot_latest: 
+            if plot_latest: #retrieve latest experiment in data directory
                 list_of_data_dirs = [x[0] for x in os.walk(data_dir)]
                 latest_data_dir = max(list_of_data_dirs, key=os.path.getctime)
                 self.fdir = latest_data_dir
@@ -355,7 +357,7 @@ class Plotter():
         plt.ylabel('Probability')
         self._savefig(flag=8)
 
-    def plot_quantiles_progression(self, Vmin=-800, Vmax=800, interval=20):
+    def plot_quantiles_progression(self, Vmin=-800, Vmax=800, interval=20, **kwargs):
         """Plot progression of quantile value distribution throughout learning."""
         quantile_probs, quantile_vals = self._get_quantiles_data(Vmin, Vmax)
 
@@ -363,7 +365,8 @@ class Plotter():
         def dist_progress(i):
             fig.clear()
             plt.ylim(0,1)
-            p = plt.bar(quantile_vals, quantile_probs[i*interval], color='r', width=20)
+            p = plt.bar(quantile_vals, quantile_probs[i*interval], 
+                        color='dimgrey', edgecolor='black', width=25)
             plt.title(f'State-Return Distribution for initial IMP state at epoch: {i*interval}')
             plt.xlabel('Value')
             plt.ylabel('Probability')
