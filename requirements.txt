@@ -23,4 +23,4 @@ virtualenv==20.14.1
 virtualenv-clone==0.5.7
 virtualenvwrapper==4.8.4
 sympy==1.10.1
-garage==2020.06.3
+git+https://github.com/rlworkgroup/garage.git
