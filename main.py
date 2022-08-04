@@ -18,7 +18,7 @@ def test_dcpo_backlog():
 
 def plot_experiment():
     fdir = ['trpo_backlog_1', 'cpo_backlog', 'saute_trpo_backlog_3']
-    plotter = Plotter(fdir=fdir)
+    plotter = Plotter(fdir=None)
     plotter.plot_returns()
     #plotter.plot_constraint_vals()
     plotter.plot_costs()
@@ -30,5 +30,5 @@ if __name__ == '__main__':
     #test_trpo_backlog()
     #test_cpo_backlog()
     #test_saute_trpo_backlog()
-    #test_dcpo_backlog()
-    plot_experiment()
+    test_dcpo_backlog()
+    #plot_experiment()

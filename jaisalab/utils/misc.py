@@ -1,4 +1,5 @@
 from datetime import datetime 
+from shutil import make_archive
 
 from dowel import tabular
 import numpy as np
@@ -8,6 +9,9 @@ from garage.np import discount_cumsum
 
 import torch 
 import torch.nn as nn
+
+def zip_directory(dir_path, zip_name):
+    make_archive(f'{zip_name}', 'zip', dir_path)
 
 def get_time_stamp_as_string():
     """Get the current time stamp as a string.
