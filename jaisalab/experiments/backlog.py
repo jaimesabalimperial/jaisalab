@@ -26,7 +26,7 @@ from garage import Trainer, wrap_experiment
 from garage.experiment.deterministic import set_seed
 
 @wrap_experiment
-def cpo_backlog(ctxt=None, seed=1, n_epochs=600):
+def cpo_backlog(ctxt=None, seed=1, n_epochs=800):
     """Train CPO with InvManagementBacklogEnv environment.
 
     Args:
@@ -67,10 +67,12 @@ def cpo_backlog(ctxt=None, seed=1, n_epochs=600):
                                             hidden_nonlinearity=torch.tanh,
                                             output_nonlinearity=None)
 
-    sampler = SamplerSafe(agents=policy,
-                          envs=env)
-
     safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
+
+    sampler = SamplerSafe(agents=policy,
+                          envs=env, 
+                          max_episode_length=env.spec.max_episode_length, 
+                          worker_args={'safety_constraint': safety_constraint})
 
     algo = CPO(env_spec=env.spec,
                policy=policy,
