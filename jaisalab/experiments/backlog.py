@@ -173,7 +173,7 @@ def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=800):
     trainer = Trainer(ctxt)
 
     policy = GaussianPolicy(env.spec,
-                               hidden_sizes=[32, 32],
+                               hidden_sizes=[64, 64],
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)
 
