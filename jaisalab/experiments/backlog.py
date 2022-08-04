@@ -114,8 +114,6 @@ def trpo_backlog(ctxt=None, seed=1, n_epochs=600):
 
     policy = GaussianPolicy(env.spec,
                                hidden_sizes=[64, 64],
-                               noise_dim=10, 
-                               noise_num=5,
                                hidden_nonlinearity=torch.tanh,
                                output_nonlinearity=None)
 
