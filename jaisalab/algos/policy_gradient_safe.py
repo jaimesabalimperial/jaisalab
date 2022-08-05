@@ -396,7 +396,6 @@ class PolicyGradientSafe(VPG):
 
         Args:
             device (str): ID of GPU or CPU.
-
         """
         if device is None:
             device = global_device()
