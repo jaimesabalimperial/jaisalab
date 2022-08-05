@@ -3,17 +3,17 @@ from jaisalab.experiments.backlog import (trpo_backlog, cpo_backlog,
                                           saute_trpo_backlog, dcpo_backlog)
 from jaisalab.evaluation import RLPlotter
 
-def test_trpo_backlog():
-    trpo_backlog(seed=2)
+def test_trpo_backlog(seed):
+    trpo_backlog(seed=seed)
 
-def test_cpo_backlog():
-    cpo_backlog(seed=2)
+def test_cpo_backlog(seed):
+    cpo_backlog(seed=seed)
 
-def test_saute_trpo_backlog():
-    saute_trpo_backlog(seed=2)
+def test_saute_trpo_backlog(seed):
+    saute_trpo_backlog(seed=seed)
 
-def test_dcpo_backlog():
-    dcpo_backlog(seed=2)
+def test_dcpo_backlog(seed):
+    dcpo_backlog(seed=seed)
 
 
 def plot_experiment():
@@ -27,8 +27,9 @@ def plot_experiment():
     plotter.plot_quantiles_progression(interval=10)
 
 if __name__ == '__main__':
-    #test_trpo_backlog()
-    #test_cpo_backlog()
-    #test_saute_trpo_backlog()
-    test_dcpo_backlog()
+    seed_val = 3
+    test_trpo_backlog(seed=seed_val)
+    #test_cpo_backlog(seed=seed_val)
+    #test_saute_trpo_backlog(seed=seed_val)
+    #test_dcpo_backlog(seed=seed_val)
     #plot_experiment()
