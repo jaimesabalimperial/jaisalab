@@ -17,7 +17,7 @@ def order_experiments(data_dirs):
             ordered_experiments[name].append(path)
     
     #check that all of the experiments have the same number of replications
-    num_replications = set([len(exp_replications) for exp_replications in ordered_experiments.values()])
+    num_replications = list(set([len(exp_replications) for exp_replications in ordered_experiments.values()]))
 
     if len(num_replications) > 1: 
         raise ReplicationsError("Number of replications across different experiments doesn't match.")
@@ -45,7 +45,7 @@ def gather_replications(data_dirs):
         to data directories. 
     """
     ordered_experiments = order_experiments(data_dirs)
-    
+
 
 class ReplicationsError(Exception):
     """Exception to be raised when the number of replications for 
