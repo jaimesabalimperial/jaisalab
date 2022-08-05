@@ -3,13 +3,11 @@ import os
 import random
 import numpy as np 
 import matplotlib.pyplot as plt 
-import pandas as pd
 import csv
 import warnings
-import matplotlib.animation as ani
 
 #jaisalab
-from jaisalab.utils.metrics import gather_replications
+from jaisalab.utils.eval import gather_replications
 
 class BasePlotter():
     """Plotter base class."""

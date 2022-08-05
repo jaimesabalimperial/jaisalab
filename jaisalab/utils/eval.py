@@ -2,10 +2,14 @@ import numpy as np
 import os 
 
 def order_experiments(data_dirs):
-    """Check that the data directories contain the same number of 
-    experiments and that the experiments are consistent in naming."""
+    """Checks that the data directories contain the same number of 
+    experiments and that the experiments are consistent in naming. Also
+    returns an ordered nested list containing the different replications 
+    for each experiment. 
+    """
+    ordered_experiments = {}
     for dir in data_dirs:
-        experiment_paths = [x[0] for x in os.walk(dir)]
+        experiment_paths = [x[0] for x in os.walk(dir)][1:]
         experiment_names = [path.split('/')[-1] for path in experiment_paths]
         
 def gather_replications(data_dirs):
@@ -26,5 +30,5 @@ def gather_replications(data_dirs):
         data_dirs (tuple, list): List or tuple of strings specifying relative paths 
         to data directories. 
     """
-    
+
     pass

@@ -1,15 +1,10 @@
 #misc
-import os 
-import random
 import numpy as np 
 import matplotlib.pyplot as plt 
-import pandas as pd
-import csv
-import warnings
 import matplotlib.animation as ani
 
 #jaisalab
-from jaisalab.metrics.plotter_base import BasePlotter
+from jaisalab.evaluation.plotter_base import BasePlotter
 
 class RLPlotter(BasePlotter):
     """Plotting functionalities for evaluation of RL algorithms implemented 
@@ -31,7 +26,6 @@ class RLPlotter(BasePlotter):
 
         - savefig (bool): Wether to save plotted figures (By default these are saved to 'plots' 
           directory within the current working directory). 
-    
     """
     def __init__(self, get_latest=True, fdir=None, data_dir='data/local/experiment', 
                  dtype='np', savefig=True, **kwargs):

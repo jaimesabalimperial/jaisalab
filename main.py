@@ -1,7 +1,7 @@
 from torch import seed
 from jaisalab.experiments.backlog import (trpo_backlog, cpo_backlog, 
                                           saute_trpo_backlog, dcpo_backlog)
-from jaisalab.metrics import Plotter
+from jaisalab.evaluation import RLPlotter
 
 def test_trpo_backlog():
     trpo_backlog(seed=2)
@@ -18,7 +18,7 @@ def test_dcpo_backlog():
 
 def plot_experiment():
     #fdir = ['trpo_backlog_1', 'cpo_backlog_1', 'saute_trpo_backlog_1', 'dcpo_backlog_1']
-    plotter = Plotter(fdir='dcpo_backlog_1')
+    plotter = RLPlotter(fdir='dcpo_backlog_1')
     #plotter.plot_returns()
     #plotter.plot_constraint_vals()
     #plotter.plot_costs()
