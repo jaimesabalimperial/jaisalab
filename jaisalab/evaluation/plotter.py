@@ -35,9 +35,9 @@ class RLPlotter(BasePlotter):
     def plot_returns(self):
         """Plot progression of returns throughout epochs."""
         y_column = 'Evaluation/AverageReturn'
-        std_column = 'Evaluation/StdReturn'
         ylabel = 'Average Return'
     
+        std_column = 'Evaluation/StdReturn'
         x_array, y_array, std_array = self.get_data_arrays(y_column, std_column)
 
         self.plot(x_array, y_array, ylabel, std=std_array)
@@ -59,7 +59,12 @@ class RLPlotter(BasePlotter):
         y_column = 'Evaluation/AverageDiscountedSafetyReturn'
         ylabel = 'Constraint Value'
 
-        x_array, y_array = self.get_data_arrays(y_column)
+        if self.std_data is not None: 
+            x_array, y_array, std_array = self.get_data_arrays(y_column)
+            self.plot(x_array, y_array, ylabel, std=std_array)
+        else: 
+            x_array, y_array = self.get_data_arrays(y_column)
+            self.plot(x_array, y_array, ylabel)
 
         self.plot(x_array, y_array, ylabel)
         self.savefig(flag=3)

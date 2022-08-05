@@ -4,10 +4,10 @@ import random
 import numpy as np 
 import matplotlib.pyplot as plt 
 import csv
-import warnings
 
 #jaisalab
-from jaisalab.utils.eval import gather_replications
+from jaisalab.utils.eval import (gather_replications, get_data_dict, 
+                                 order_experiments, _get_labels_from_dirs)
 
 class BasePlotter():
     """Plotter base class."""
@@ -16,18 +16,10 @@ class BasePlotter():
 
         self.data_dir = data_dir
         self.algorithm_names = ['cpo', 'trpo']
+        self._dtype = dtype
 
-        if isinstance(data_dir, str):
-            #initialise plotter attributes as per specifications
-            self._init_plotter(fdir, data_dir, get_latest) 
-            if dtype == 'np':
-                self.data = self._collect_data_as_np()
-            else: 
-                raise NotImplementedError("Other datatypes have not yet been implemented.")
-        elif isinstance(data_dir, (tuple, list)):
-            self.data = gather_replications(data_dir) #gather replications data
-        else: 
-            raise TypeError('Specified data_dir must be a string or tuple/list of strings.')
+        #initialise plotter and gather data from directory/ies
+        self._init_plotter(fdir, data_dir, get_latest) 
 
         self._savefig = savefig
         self.fig_kwargs = kwargs
@@ -40,77 +32,54 @@ class BasePlotter():
                             8:'final_dist', 9:'quantile_dist_progress'}
     
     def _init_plotter(self, fdir, data_dir, get_latest):
-        if fdir is not None: 
-            if isinstance(fdir, (list, tuple)): #multiple experiments inputted
-                self.fdir = [data_dir+'/'+exp for exp in fdir]
-                if len(fdir) > 4:
-                    raise ValueError("Please don't input more than 4 experiments at once.")
-                split_exp_names =[exp.split('_') for exp in fdir] 
-
-                self._exp_labels = []
-                for exp_name in split_exp_names:
-                    if exp_name[1] in self.algorithm_names:
-                        self._exp_labels.append('_'.join(exp_name[:2]))
-                    else: 
-                        self._exp_labels.append(exp_name[0])
-
-                self._savefig_name = '_'.join(self._exp_labels)
-            else: 
-                #case where a single experiment is inputted
-                self.fdir = data_dir+'/'+fdir
-                self.dir_name = self.fdir.split('/')[-1]
-                split_exp_name = self.dir_name.split('_')
-                self._exp_label = split_exp_name[0]
-                self._savefig_name = fdir
-        else: 
-            if get_latest: #retrieve latest experiment in data directory
-                experiment_paths = [x[0] for x in os.walk(data_dir)]
-                latest_experiment = max(experiment_paths, key=os.path.getctime)
-                self.fdir = latest_experiment
-                self.dir_name = latest_experiment.split('/')[-1]
-                self._savefig_name = self.dir_name
-                split_exp_name = self.dir_name.split('_')
-                self._exp_label = split_exp_name[0]
-            else: 
-                raise TypeError("'NoneType' object is not an accesible data directory.")
-
-    def _get_data_dict(self, csvreader): 
-        #get metric names
-        metrics = [] 
-        metrics = next(csvreader)
-
-        #extract data
-        data = []
-        for row in csvreader:
-            data.append(row)
-
-        #convert to NumPy array
-        data = np.array(data)
-
-        bad_metrics = None
-        try:
-            data = data.astype(np.float32)
-        except ValueError:
-            #a column in the dataset cant be converted to desired datatype
-            bad_metrics = []
-            old_data = data.copy()
-            data = np.zeros(np.shape(old_data), dtype=np.float32)
-            for col in range(len(data[0])):
-                if '' in old_data[:,col]:
-                    bad_metrics.append(metrics[col])
-                    warnings.warn(message=f'Couldnt convert {metrics[col]} array to type np.float32.')
-                    continue
+        """Initialise plotter attributes; includes gathering data from 
+        specified directory or directories, and setting plotting arguments 
+        depending on data collected."""
+        #if one directory is specified then 
+        if isinstance(data_dir, str):
+            self.std_data = None
+            if fdir is not None: 
+                if isinstance(fdir, (list, tuple)): #multiple experiments inputted
+                    self.fdir = [data_dir+'/'+exp for exp in fdir]
+                    if len(fdir) > 4:
+                        raise ValueError("Please don't input more than 4 experiments at once.")
+                    
+                    self._exp_labels = _get_labels_from_dirs(fdir, self.algorithm_names)
+                    self._savefig_name = '_'.join(self._exp_labels)
                 else: 
-                    data[:,col] = old_data[:,col].astype(np.float32)
+                    #case where a single experiment is inputted
+                    self.fdir = data_dir+'/'+fdir
+                    self.dir_name = self.fdir.split('/')[-1]
+                    split_exp_name = self.dir_name.split('_')
+                    self._exp_label = split_exp_name[0]
+                    self._savefig_name = fdir
+            else: 
+                if get_latest: #retrieve latest experiment in data directory
+                    experiment_paths = [x[0] for x in os.walk(data_dir)]
+                    latest_experiment = max(experiment_paths, key=os.path.getctime)
+                    self.fdir = latest_experiment
+                    self.dir_name = latest_experiment.split('/')[-1]
+                    self._savefig_name = self.dir_name
+                    split_exp_name = self.dir_name.split('_')
+                    self._exp_label = split_exp_name[0]
+                else: 
+                    raise TypeError("'NoneType' object is not an accesible data directory.")
 
-        data_dict = {}
-        for i, metric in enumerate(metrics):
-            if bad_metrics is not None and metric in bad_metrics:
-                continue
-            data_dict[metric] = data[:,i]
+            if self._dtype == 'np':
+                self.data = self._collect_data_as_np()
+            else: 
+                raise NotImplementedError("Other datatypes have not yet been implemented.")
+
+        #if multiple directories are specified then gather the data from the replications
+        elif isinstance(data_dir, (tuple, list)):
+            self.data, self.std_data = gather_replications(data_dir) #gather replications data
+            ordered_experiments = order_experiments(data_dir)
+            self.fdir = list(ordered_experiments.keys())
+            self._exp_labels = _get_labels_from_dirs(self.fdir, self.algorithm_names)
+            self._savefig_name = '_'.join(self._exp_labels)
+        else: 
+            raise TypeError('Specified data_dir must be a string or tuple/list of strings.')
         
-        return data_dict
-
     def _collect_data(self):
         if isinstance(self.fdir, (list, tuple)):
             if len(self.fdir) > 1:
@@ -126,10 +95,10 @@ class BasePlotter():
         if isinstance(csvreader, list):
             data_dict = {}
             for i, reader in enumerate(csvreader):
-                file_data_dict = self._get_data_dict(reader)
+                file_data_dict = get_data_dict(reader)
                 data_dict[self.fdir[i]] = file_data_dict
         else: 
-            data_dict = self._get_data_dict(csvreader)
+            data_dict = get_data_dict(csvreader)
 
         return data_dict
 
@@ -183,22 +152,33 @@ class BasePlotter():
     
     
     def get_data_arrays(self, y_column, std_column=None):
+        """Retrieve data arrays in different ways depending on data structure."""
         if isinstance(self.fdir, (list, tuple)):
             y_array = [data[y_column] for data in self.data.values()]
             x_array = [np.arange(0, len(y)) for y in y_array]
-            if std_column is not None:
-                std_array = [data[std_column] for data in self.data.values()]
+
+            if self.std_data is not None: 
+                std_array = [data[y_column] for data in self.std_data.values()]
                 return x_array, y_array, std_array
             else: 
-                return x_array, y_array
+                if std_column is not None:
+                    std_array = [data[std_column] for data in self.data.values()]
+                    return x_array, y_array, std_array
+                else: 
+                    return x_array, y_array
         else: 
             y_array = self.data[y_column]
             x_array = np.arange(0, len(y_array))
-            if std_column is not None:
-                std_array = self.data[std_column]
+
+            if self.std_data is not None:
+                std_array = self.std_data[y_column]
                 return x_array, y_array, std_array
-            else: 
-                return x_array, y_array
+            else:
+                if std_column is not None:
+                    std_array = self.data[std_column]
+                    return x_array, y_array, std_array
+                else: 
+                    return x_array, y_array
         
     def get_distribution_data(self):
         if isinstance(self.fdir, (list, tuple)):
