@@ -4,11 +4,10 @@ import torch
 import inspect 
 
 #garage
-from garage.torch.optimizers import OptimizerWrapper
 from garage.torch._functions import zero_optim_grads
 
 #jaisalab
-from jaisalab.utils.misc import soft_update
+from jaisalab.optimizers.wrapper import OptimizerWrapper
 
 class BaseConstraint(object):
     """Base class for any safety constraint of an environment.

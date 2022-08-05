@@ -11,16 +11,17 @@ import inspect
 
 #garage
 from garage.torch.algos import VPG
-from garage.torch import compute_advantages, filter_valids
+from garage.torch import (compute_advantages, filter_valids, 
+                          global_device, state_dict_to)
 from garage.torch._functions import np_to_torch, zero_optim_grads
 from garage.np import discount_cumsum
 
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
-from jaisalab.utils import log_performance, soft_update
+from jaisalab.utils import log_performance
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
-from jaisalab.value_functions import QRValueFunction, GaussianValueFunction
+from jaisalab.value_functions import GaussianValueFunction
 
 import numpy as np
 
@@ -50,7 +51,6 @@ class PolicyGradientSafe(VPG):
                 safety_constraint=None,
                 safety_discount=1,
                 safety_gae_lambda=1,
-                use_target_vf=False,
                 center_safety_vals=True,
                 num_train_per_epoch=1,
                 step_size=0.01,
@@ -66,6 +66,7 @@ class PolicyGradientSafe(VPG):
                 is_saute = False):
 
         if safety_constraint is None:
+            #by default use a Gaussian baseline and soft constraints for IMP
             safety_baseline = GaussianValueFunction(env_spec=env_spec,
                                                      hidden_sizes=(64, 64),
                                                      hidden_nonlinearity=torch.tanh,
@@ -79,6 +80,7 @@ class PolicyGradientSafe(VPG):
                 raise TypeError("Safety constraint has to inherit from BaseConstraint.")
         
         self._safety_optimizer = self.safety_constraint.baseline_optimizer
+        self._safety_baseline = self.safety_constraint.baseline
         self.safety_constrained_optimizer = safety_constrained_optimizer
         self.step_size = step_size 
         self.safety_step_size = self.safety_constraint.safety_step
@@ -91,7 +93,6 @@ class PolicyGradientSafe(VPG):
                 raise TypeError("Worker class must be a jaisalab.sampler.SafeWorker object.")
             self.sampler = sampler
 
-        self._device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.grad_norm = grad_norm
         self.env_spec = env_spec
         self.sampler.algo = self
@@ -230,7 +231,7 @@ class PolicyGradientSafe(VPG):
 
         #calculate safety baseline
         with torch.no_grad():
-            safety_baselines = self.safety_constraint.baseline(obs)
+            safety_baselines = self._safety_baseline(obs)
         
         if self._maximum_entropy:
             policy_entropies = self._compute_policy_entropy(obs)
@@ -378,4 +379,34 @@ class PolicyGradientSafe(VPG):
                 f_constraint=lambda: self._compute_kl_constraint(obs))
 
             return loss
+
+    @property
+    def networks(self):
+        """Return all the networks within the model.
+
+        Returns:
+            list: A list of networks.
+
+        """
+        return [self.policy, self._value_function, 
+                self._safety_baseline]
+    
+    def to(self, device=None):
+        """Put all the networks within the model on device.
+
+        Args:
+            device (str): ID of GPU or CPU.
+
+        """
+        if device is None:
+            device = global_device()
+        for net in self.networks:
+            net.to(device)
+        else: #move state dictionaries of networks to device
+            self._safety_optimizer.load_state_dict(
+                state_dict_to(self._safety_optimizer.state_dict(), device))
+            self._vf_optimizer.load_state_dict(
+                state_dict_to(self._vf_optimizer.state_dict(), device))
+            self._policy_optimizer.load_state_dict(
+                state_dict_to(self._policy_optimizer.state_dict(), device))
     

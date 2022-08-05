@@ -240,6 +240,7 @@ class ConjugateConstraintOptimizer(Optimizer):
     def state(self):
         """dict: The hyper-parameters of the optimizer."""
         return {
+            'max_constraint_value': self._max_constraint_value,
             'cg_iters': self._cg_iters,
             'max_backtracks': self._max_backtracks,
             'backtrack_ratio': self._backtrack_ratio,
@@ -268,7 +269,7 @@ class ConjugateConstraintOptimizer(Optimizer):
             warnings.warn(
                 'Resuming ConjugateGradientOptimizer with lost state. '
                 'This behavior is fixed if pickling from garage>=2020.02.0.')
-        self.defaults = state['defaults']
+        #self.defaults = state['defaults']
         # Set the fields manually so that the setter gets called.
         self.state = state['state']
         self.param_groups = state['param_groups']

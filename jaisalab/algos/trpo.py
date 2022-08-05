@@ -3,12 +3,12 @@ from logging import warning
 import torch
 
 #garage
-from garage.torch.optimizers import (ConjugateGradientOptimizer,
-                                     OptimizerWrapper)
+from garage.torch.optimizers import ConjugateGradientOptimizer
 
 #jaisalab
 from jaisalab.algos.policy_gradient_safe import PolicyGradientSafe
 from jaisalab.safety_constraints import SoftInventoryConstraint
+from jaisalab.optimizers import OptimizerWrapper
 
 
 
@@ -22,9 +22,9 @@ class SafetyTRPO(PolicyGradientSafe):
         value_function (garage.torch.value_functions.ValueFunction): The value
             function.
         sampler (garage.sampler.Sampler): Sampler.
-        policy_optimizer (garage.torch.optimizer.OptimizerWrapper): Optimizer
+        policy_optimizer (jaisalab.optimizer.OptimizerWrapper): Optimizer
             for policy.
-        vf_optimizer (garage.torch.optimizer.OptimizerWrapper): Optimizer for
+        vf_optimizer (jaisalab.optimizer.OptimizerWrapper): Optimizer for
             value function.
         safety_constraint (jaisalab.safety_constraints.BaseConstraint): Environment safety constraint.
         safety_discount (float): Safety discount.
@@ -102,19 +102,13 @@ class SafetyTRPO(PolicyGradientSafe):
         else: 
             self.safety_constraint = safety_constraint
         
-        self._device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        self.env_spec = env_spec
-
-        #TRPO uses ConjugateGradientOptimizer
-        safety_constrained_optimizer=False
-
         super().__init__(env_spec=env_spec,
                          policy=policy,
                          value_function=value_function,
                          sampler=sampler,
                          policy_optimizer=policy_optimizer,
                          vf_optimizer=vf_optimizer,
-                         safety_constrained_optimizer=safety_constrained_optimizer,
+                         safety_constrained_optimizer=False, #TRPO uses ConjugateGradientOptimizer
                          safety_constraint=safety_constraint,
                          safety_discount=safety_discount,
                          safety_gae_lambda=safety_gae_lambda,

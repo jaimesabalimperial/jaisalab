@@ -24,6 +24,13 @@ from jaisalab.policies import SemiImplicitPolicy, GaussianPolicy
 import garage
 from garage import Trainer, wrap_experiment
 from garage.experiment.deterministic import set_seed
+from garage.torch import set_gpu_mode
+
+#check if cuda is available
+if torch.cuda.is_available():
+    set_gpu_mode(True)
+else:
+    set_gpu_mode(False)
 
 @wrap_experiment
 def cpo_backlog(ctxt=None, seed=1, n_epochs=800):

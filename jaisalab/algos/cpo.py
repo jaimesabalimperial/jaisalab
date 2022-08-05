@@ -1,11 +1,8 @@
 """Constrained Policy Optimization using PyTorch with the garage framework."""
 import torch
 
-#garage
-from garage.torch.optimizers import OptimizerWrapper
-
 #jaisalab
-from jaisalab.optimizers import ConjugateConstraintOptimizer
+from jaisalab.optimizers import ConjugateConstraintOptimizer, OptimizerWrapper
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.algos import PolicyGradientSafe
 
@@ -87,12 +84,8 @@ class CPO(PolicyGradientSafe):
                 minibatch_size=64)
 
         if safety_constraint is None:
-            self.safety_constraint = SoftInventoryConstraint()
-        else: 
-            self.safety_constraint = safety_constraint
+            safety_constraint = SoftInventoryConstraint()
 
-        #CPO uses ConjugateConstraintOptimizer
-        safety_constrained_optimizer=True
 
         super().__init__(env_spec=env_spec,
                          policy=policy,
@@ -100,7 +93,7 @@ class CPO(PolicyGradientSafe):
                          sampler=sampler,
                          policy_optimizer=policy_optimizer,
                          vf_optimizer=vf_optimizer,
-                         safety_constrained_optimizer=safety_constrained_optimizer,
+                         safety_constrained_optimizer=True, #CPO uses ConjugateConstraintOptimizer
                          safety_constraint=safety_constraint,
                          safety_discount=safety_discount,
                          safety_gae_lambda=safety_gae_lambda,

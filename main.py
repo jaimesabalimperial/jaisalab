@@ -4,16 +4,16 @@ from jaisalab.experiments.backlog import (trpo_backlog, cpo_backlog,
 from jaisalab.metrics import Plotter
 
 def test_trpo_backlog():
-    trpo_backlog(seed=1)
+    trpo_backlog(seed=2)
 
 def test_cpo_backlog():
-    cpo_backlog(seed=1)
+    cpo_backlog(seed=2)
 
 def test_saute_trpo_backlog():
-    saute_trpo_backlog(seed=1)
+    saute_trpo_backlog(seed=2)
 
 def test_dcpo_backlog():
-    dcpo_backlog(seed=1)
+    dcpo_backlog(seed=2)
 
 
 def plot_experiment():
@@ -27,8 +27,8 @@ def plot_experiment():
     plotter.plot_quantiles_progression(interval=10)
 
 if __name__ == '__main__':
-    #test_trpo_backlog()
+    test_trpo_backlog()
     #test_cpo_backlog()
     #test_saute_trpo_backlog()
     #test_dcpo_backlog()
-    plot_experiment()
+    #plot_experiment()
