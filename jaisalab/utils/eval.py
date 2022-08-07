@@ -17,7 +17,7 @@ def order_experiments(data_dirs, fdir=None):
         fdir (tuple, list): experiments to gather from the data directories (Default=None 
             which gathers all of the experiments in the specified data_dirs).
     """
-    assert fdir is None or isinstance(fdir, (tuple, list, str)), 'fdir must be a tuple or a list.'
+    assert fdir is None or isinstance(fdir, (tuple, list)), 'fdir must be a tuple or a list.'
     ordered_experiments = defaultdict(list)
 
     for dir in data_dirs:
@@ -35,7 +35,7 @@ def order_experiments(data_dirs, fdir=None):
     num_replications = list(set([len(exp_replications) for exp_replications in ordered_experiments.values()]))
 
     if len(num_replications) > 1: 
-        raise ReplicationsError("Number of replications across different experiments doesn't match.")
+        raise ReplicationsError(f"Number of replications across different experiments doesn't match: {num_replications}")
     elif num_replications[0] != len(data_dirs):
         raise ReplicationsError(f"Number of replications ({num_replications[0]}) \
                                 doesn't match number of directories ({len(data_dirs)}).")
@@ -62,6 +62,9 @@ def gather_replications(data_dirs, fdir=None):
 
         fdir (tuple, list): experiments to gather from the data directories. 
     """
+    if isinstance(fdir, str):
+        fdir = [fdir]
+
     ordered_experiments = order_experiments(data_dirs, fdir)
 
     data = {}
@@ -115,9 +118,13 @@ def _transpose_data(replications):
     """
     transposed_data = defaultdict(list)
     
+    exp_lens = set()
     for rep_data in replications:
         for metric, data in rep_data.items():
+            exp_lens.update([len(data)])
             transposed_data[metric].append(data)
+
+    assert len(exp_lens) == 1, f'Experiment lengths must be equal: Found lengths {list(exp_lens)}.'
 
     #convert metrics data into NumPy arrays
     for metric, reps_data in transposed_data.items():

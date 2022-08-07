@@ -72,7 +72,7 @@ class BasePlotter():
         elif isinstance(data_dir, (tuple, list)):
             self.data, self.std_data = gather_replications(data_dir, fdir) #gather replications data
             ordered_experiments = order_experiments(data_dir)
-
+            #for plotting purposes
             if fdir is not None: 
                 self.fdir = fdir
                 if isinstance(fdir, (list, tuple)): #multiple experiments inputted

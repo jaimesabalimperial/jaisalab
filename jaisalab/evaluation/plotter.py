@@ -7,8 +7,8 @@ import matplotlib.animation as ani
 from jaisalab.evaluation.plotter_base import BasePlotter
 
 class RLPlotter(BasePlotter):
-    """Plotting functionalities for evaluation of RL algorithms implemented 
-    through the garage framework.
+    """Plotting functionalities for evaluation of constrained RL 
+    algorithms implemented through the jaisalab and garage frameworks.
     
     Args: 
         - plot_latest (bool): Wether to plot the latest results found in the default
@@ -28,9 +28,9 @@ class RLPlotter(BasePlotter):
           directory within the current working directory). 
     """
     def __init__(self, get_latest=True, fdir=None, data_dir='data/local/experiment', 
-                 dtype='np', savefig=True, **kwargs):
+                 dtype='np', savefig=True, use_legend=True, **kwargs):
         super().__init__(get_latest=get_latest, fdir=fdir, data_dir=data_dir, 
-                         dtype=dtype, savefig=savefig, **kwargs)
+                         dtype=dtype, savefig=savefig, use_legend=use_legend, **kwargs)
 
     def plot_returns(self):
         """Plot progression of returns throughout epochs."""
