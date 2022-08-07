@@ -27,9 +27,9 @@ def plot_experiment():
     plotter.plot_quantiles_progression(interval=10)
 
 if __name__ == '__main__':
-    seed_val = 5
-    #test_trpo_backlog(seed=seed_val)
+    seed_val = 6
+    test_trpo_backlog(seed=seed_val)
     #test_cpo_backlog(seed=seed_val)
-    test_saute_trpo_backlog(seed=seed_val)
+    #test_saute_trpo_backlog(seed=seed_val)
     #test_dcpo_backlog(seed=seed_val)
     #plot_experiment()
