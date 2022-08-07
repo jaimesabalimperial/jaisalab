@@ -12,11 +12,12 @@ from jaisalab.utils.eval import (gather_replications, get_data_dict,
 class BasePlotter():
     """Plotter base class."""
     def __init__(self, get_latest=True, fdir=None, data_dir='data/local/experiment', 
-                 dtype='np', savefig=True, **kwargs):
+                 dtype='np', savefig=True, use_legend=True, **kwargs):
 
         self.data_dir = data_dir
         self.algorithm_names = ['cpo', 'trpo']
         self._dtype = dtype
+        self.use_legend = use_legend
 
         #initialise plotter and gather data from directory/ies
         self._init_plotter(fdir, data_dir, get_latest) 
@@ -49,9 +50,7 @@ class BasePlotter():
                 else: 
                     #case where a single experiment is inputted
                     self.fdir = data_dir+'/'+fdir
-                    self.dir_name = self.fdir.split('/')[-1]
-                    split_exp_name = self.dir_name.split('_')
-                    self._exp_label = split_exp_name[0]
+                    self._exp_label = fdir.split('_')[0]
                     self._savefig_name = fdir
             else: 
                 if get_latest: #retrieve latest experiment in data directory
@@ -60,8 +59,7 @@ class BasePlotter():
                     self.fdir = latest_experiment
                     self.dir_name = latest_experiment.split('/')[-1]
                     self._savefig_name = self.dir_name
-                    split_exp_name = self.dir_name.split('_')
-                    self._exp_label = split_exp_name[0]
+                    self._exp_label = self.dir_name.split('_')[0]
                 else: 
                     raise TypeError("'NoneType' object is not an accesible data directory.")
 
@@ -72,11 +70,21 @@ class BasePlotter():
 
         #if multiple directories are specified then gather the data from the replications
         elif isinstance(data_dir, (tuple, list)):
-            self.data, self.std_data = gather_replications(data_dir) #gather replications data
+            self.data, self.std_data = gather_replications(data_dir, fdir) #gather replications data
             ordered_experiments = order_experiments(data_dir)
-            self.fdir = list(ordered_experiments.keys())
-            self._exp_labels = _get_labels_from_dirs(self.fdir, self.algorithm_names)
-            self._savefig_name = '_'.join(self._exp_labels)
+
+            if fdir is not None: 
+                self.fdir = fdir
+                if isinstance(fdir, (list, tuple)): #multiple experiments inputted
+                    self._exp_labels = _get_labels_from_dirs(fdir, self.algorithm_names)
+                    self._savefig_name = '_'.join(self._exp_labels)
+                else: 
+                    self._exp_label = fdir.split('_')[0]
+                    self._savefig_name = fdir
+            else: 
+                self.fdir = list(ordered_experiments.keys())
+                self._exp_labels = _get_labels_from_dirs(self.fdir, self.algorithm_names)
+                self._savefig_name = '_'.join(self._exp_labels)
         else: 
             raise TypeError('Specified data_dir must be a string or tuple/list of strings.')
         
@@ -167,13 +175,15 @@ class BasePlotter():
                 else: 
                     return x_array, y_array
         else: 
-            y_array = self.data[y_column]
-            x_array = np.arange(0, len(y_array))
-
+            #data structured differently in case of replications
             if self.std_data is not None:
-                std_array = self.std_data[y_column]
+                y_array = list(self.data.values())[0][y_column] 
+                x_array = np.arange(0, len(y_array))
+                std_array = list(self.std_data.values())[0][y_column]
                 return x_array, y_array, std_array
             else:
+                y_array = self.data[y_column]
+                x_array = np.arange(0, len(y_array))
                 if std_column is not None:
                     std_array = self.data[std_column]
                     return x_array, y_array, std_array
@@ -229,8 +239,6 @@ class BasePlotter():
                                      y[:min_episode_num]+std[i][:min_episode_num], color=self._colors[i], 
                                      alpha=0.4)
         else: 
-            fig = plt.figure()
-            plt.grid()
             plt.plot(x_array, y_array, color=self._plot_color, label=self._exp_label)
             if std is not None: 
                 plt.fill_between(x_array, y_array-std, y_array+std, 
@@ -241,7 +249,8 @@ class BasePlotter():
             
         plt.xlabel('Episode')
         plt.ylabel(ylabel)
-        plt.legend(loc='best')
+        if self.use_legend:
+            plt.legend(loc='best')
     
     def plot_returns(self):
         """Plot progression of returns throughout epochs."""

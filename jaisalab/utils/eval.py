@@ -4,7 +4,7 @@ from collections import defaultdict
 import csv
 import warnings
 
-def order_experiments(data_dirs):
+def order_experiments(data_dirs, fdir=None):
     """Checks that the data directories contain the same number of 
     experiments and that the experiments are consistent in naming. Also
     returns an ordered nested list containing the different replications 
@@ -13,14 +13,23 @@ def order_experiments(data_dirs):
     Args: 
         data_dirs (tuple, list): List or tuple of strings specifying relative paths 
             to data directories. 
+
+        fdir (tuple, list): experiments to gather from the data directories (Default=None 
+            which gathers all of the experiments in the specified data_dirs).
     """
+    assert fdir is None or isinstance(fdir, (tuple, list, str)), 'fdir must be a tuple or a list.'
     ordered_experiments = defaultdict(list)
+
     for dir in data_dirs:
         experiment_paths = [x[0] for x in os.walk(dir)][1:]
         experiment_names = [path.split('/')[-1] for path in experiment_paths]
 
         for name, path in zip(experiment_names, experiment_paths):
-            ordered_experiments[name].append(path)
+            if fdir is not None: 
+                if name in fdir:
+                    ordered_experiments[name].append(path)
+            else:
+                ordered_experiments[name].append(path)
     
     #check that all of the experiments have the same number of replications
     num_replications = list(set([len(exp_replications) for exp_replications in ordered_experiments.values()]))
@@ -33,7 +42,7 @@ def order_experiments(data_dirs):
     return ordered_experiments
 
         
-def gather_replications(data_dirs):
+def gather_replications(data_dirs, fdir=None):
     """Gathers the data from a variety of directories and averages the 
     data from equivalent experiments across the different ran seed values. 
     
@@ -50,8 +59,10 @@ def gather_replications(data_dirs):
     Args: 
         data_dirs (tuple, list): List or tuple of strings specifying relative paths 
         to data directories. 
+
+        fdir (tuple, list): experiments to gather from the data directories. 
     """
-    ordered_experiments = order_experiments(data_dirs)
+    ordered_experiments = order_experiments(data_dirs, fdir)
 
     data = {}
     for exp, replication_paths in ordered_experiments.items():
@@ -92,7 +103,7 @@ def _get_labels_from_dirs(dirs, algorithm_names):
         else: 
             exp_labels.append(exp_name[0])
     return exp_labels
-    
+
 def _transpose_data(replications):
     """Transpose data in the following way: 
     

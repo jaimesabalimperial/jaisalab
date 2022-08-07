@@ -217,7 +217,6 @@ class PolicyGradientSafe(VPG):
             rewards += self._policy_ent_coeff * policy_entropies
 
         obs_flat = np_to_torch(eps.observations)
-        next_obs_flat = np_to_torch(eps.next_observations)
         actions_flat = np_to_torch(eps.actions)
         rewards_flat = np_to_torch(eps.rewards)
         returns_flat = torch.cat(filter_valids(returns, valids))
