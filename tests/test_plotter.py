@@ -2,8 +2,8 @@ import pytest
 
 from jaisalab.evaluation.plotter import RLPlotter
 
-single_data_dir = 'test_data/data1/'
-multiple_data_dirs = ['test_data/data1', 'test_data/data2/', 'test_data/data3/']
+single_data_dir = 'test_data/data1'
+multiple_data_dirs = ['test_data/data1', 'test_data/data2', 'test_data/data3']
 
 single_fdir = 'dcpo_backlog'
 multiple_fdirs = ['trpo_backlog', 'cpo_backlog', 

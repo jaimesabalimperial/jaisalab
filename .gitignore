@@ -5,6 +5,7 @@ jaisalab/__pycache__/
 *$py.class
 
 # Personal
+.DS_Store
 **/.DS_Store
 **/data1
 **/data2

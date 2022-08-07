@@ -19,19 +19,20 @@ def order_experiments(data_dirs, fdir=None):
     """
     if isinstance(fdir, str):
         fdir = [fdir]
+
     assert fdir is None or isinstance(fdir, (tuple, list)), 'fdir must be a tuple or a list.'
 
     ordered_experiments = defaultdict(list)
     for dir in data_dirs:
-        experiment_paths = [x[0] for x in os.walk(dir)][1:]
-        experiment_names = [path.split('/')[-1] for path in experiment_paths]
-
+        if fdir is not None:
+            experiment_paths = [dir+'/'+exp_name for exp_name in fdir]
+            experiment_names = fdir
+        else:
+            experiment_paths = [x[0] for x in os.walk(dir)][1:]
+            experiment_names = [path.split('/')[-1] for path in experiment_paths]
+        
         for name, path in zip(experiment_names, experiment_paths):
-            if fdir is not None: 
-                if name in fdir:
-                    ordered_experiments[name].append(path)
-            else:
-                ordered_experiments[name].append(path)
+            ordered_experiments[name].append(path)
     
     #check that all of the experiments have the same number of replications
     num_replications = list(set([len(exp_replications) for exp_replications in ordered_experiments.values()]))
