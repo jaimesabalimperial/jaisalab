@@ -170,6 +170,9 @@ def get_data_dict(csvreader):
     
     return data_dict
 
+def get_snapshot_dirs(data_dir):
+    return [x[0] for x in os.walk(data_dir)][1:]
+
 class ReplicationsError(Exception):
     """Exception to be raised when the number of replications for 
     the different ran experiments don't match."""

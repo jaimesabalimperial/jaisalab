@@ -4,8 +4,6 @@ import numpy as np
 #garage
 from garage.experiment import Snapshotter
 from garage.experiment.deterministic import set_seed
-from garage import StepType
-from garage.np import discount_cumsum
 
 #jaisalab
 from jaisalab.sampler.sampler_safe import SamplerSafe
@@ -31,7 +29,7 @@ class Evaluator(object):
         self._safety_constraint = self.data['algo'].safety_constraint
         self._env = self.data['env']
         self._seed = self.data['seed']
-        self._max_episode_length = self._env.max_episode_length
+        self._max_episode_length = self.data['algo'].max_episode_length
         self._batch_size = self.data['train_args'].batch_size
         self._discount = self.data['algo']._discount
         self._safety_discount = self.data['algo'].safety_discount
@@ -48,12 +46,19 @@ class Evaluator(object):
 
     def _reset_evaluation(self):
         """Reset attributes for evaluation of paths."""
+        self._discounted_returns = []
         self._returns = []
-        self._undiscounted_returns = []
+        self._discounted_safety_returns = []
         self._safety_returns = []
-        self._undiscounted_safety_returns = []
         self._termination = []
         self._success = []
+        self._num_episodes = 0
+
+    def _calculate_violation_rate(self):
+        """Calculate the rate of constraint violations per episode."""
+        costs = np.array(self._safety_returns).flatten()
+        violation_rate = sum(costs) / self._num_episodes
+        return violation_rate
 
     def rollout(self, n_epochs):
         """Obtain the paths sampled by the trained agent for 
@@ -77,9 +82,22 @@ class Evaluator(object):
         """Evaluate the paths after rolling out n_epochs
          with a trained policy."""
         self._reset_evaluation()
+        #analyse and log batches of episodes
         for batch in epochs:
             performance = gather_performance(batch, self._discount, 
                                              self._safety_discount, 
                                              self._is_saute)
             
-            
+            self._discounted_returns.append(performance['returns'])
+            self._returns.append(np.mean(performance['undiscounted_returns']))
+            self._discounted_safety_returns.append(performance['safety_returns'])
+            self._safety_returns.append(performance['undiscounted_safety_returns'])
+            self._termination.append(performance['termination'])
+            self._success.append(performance['success'])
+
+            self._num_episodes += len(performance['returns'])
+
+        #constraint violation rate
+        violation_rate = self._calculate_violation_rate()
+        
+        return violation_rate
