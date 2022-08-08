@@ -1,3 +1,5 @@
+from tqdm import tqdm 
+
 #garage
 from garage.experiment import Snapshotter
 from garage.experiment.deterministic import set_seed
@@ -34,13 +36,21 @@ class Evaluator(object):
 
     def rollout(self, n_epochs):
         """Obtain the paths sampled by the trained agent for 
-        a given number of epochs."""
+        a given number of epochs.
+        
+        Args:  
+            n_epochs (int): Number of batches of episodes to sample.
+        
+        Returns:
+            paths (list): List containing paths in the form of 
+                jaisalab._dtypes.SafeEpisodeBatch objects.
+        """
         set_seed(self._seed)
-        evaluation = []
-        for _ in range(n_epochs):
+        paths = []
+        for _ in tqdm(range(n_epochs), desc='Rolling out test batches...'):
             eps = self._sampler._obtain_samples(self._batch_size)
-            evaluation.append(eps)
-        return evaluation
+            paths.append(eps)
+        return paths
 
-    def get_evaluation(self):
+    def evaluate_paths(self, paths):
         pass
