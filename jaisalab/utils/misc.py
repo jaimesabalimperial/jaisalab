@@ -1,7 +1,6 @@
 from datetime import datetime 
 from shutil import make_archive
 
-from dowel import tabular
 import numpy as np
 import torch 
 import torch.nn as nn

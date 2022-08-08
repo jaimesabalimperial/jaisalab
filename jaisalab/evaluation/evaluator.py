@@ -1,11 +1,16 @@
 from tqdm import tqdm 
+import numpy as np
 
 #garage
 from garage.experiment import Snapshotter
 from garage.experiment.deterministic import set_seed
+from garage import StepType
+from garage.np import discount_cumsum
 
 #jaisalab
 from jaisalab.sampler.sampler_safe import SamplerSafe
+from jaisalab.algos.policy_gradient_safe import PolicyGradientSafe
+from jaisalab.utils.agent import gather_performance
 
 class Evaluator(object):
     """Class used to evaluate trained RL policies. Makes 
@@ -20,8 +25,7 @@ class Evaluator(object):
         self.data_dir = snapshot_dir
         self.snapshotter = Snapshotter()
 
-        #with keys: ['seed', 'train_args', 'stats', 'env', 'algo', 
-        #           'n_workers', 'worker_class', 'worker_args']
+        #examine data from snapshot of experiment
         self.data = self.snapshotter.load(snapshot_dir)
         self._policy = self.data['algo'].policy
         self._safety_constraint = self.data['algo'].safety_constraint
@@ -29,10 +33,27 @@ class Evaluator(object):
         self._seed = self.data['seed']
         self._max_episode_length = self._env.max_episode_length
         self._batch_size = self.data['train_args'].batch_size
+        self._discount = self.data['algo']._discount
+        self._safety_discount = self.data['algo'].safety_discount
+
+        if isinstance(self.data['algo'], PolicyGradientSafe):
+            self._is_saute = self.data['algo']._is_saute
+        else:
+            self._is_saute = False
+
         self._sampler = SamplerSafe(agents=self._policy,
                                 envs=self._env, 
                                 max_episode_length=self._max_episode_length, 
                                 worker_args={'safety_constraint': self._safety_constraint})
+
+    def _reset_evaluation(self):
+        """Reset attributes for evaluation of paths."""
+        self._returns = []
+        self._undiscounted_returns = []
+        self._safety_returns = []
+        self._undiscounted_safety_returns = []
+        self._termination = []
+        self._success = []
 
     def rollout(self, n_epochs):
         """Obtain the paths sampled by the trained agent for 
@@ -46,11 +67,19 @@ class Evaluator(object):
                 jaisalab._dtypes.SafeEpisodeBatch objects.
         """
         set_seed(self._seed)
-        paths = []
+        epochs = []
         for _ in tqdm(range(n_epochs), desc='Rolling out test batches...'):
             eps = self._sampler._obtain_samples(self._batch_size)
-            paths.append(eps)
-        return paths
+            epochs.append(eps)
+        return epochs
 
-    def evaluate_paths(self, paths):
-        pass
+    def evaluate_paths(self, epochs):
+        """Evaluate the paths after rolling out n_epochs
+         with a trained policy."""
+        self._reset_evaluation()
+        for batch in epochs:
+            performance = gather_performance(batch, self._discount, 
+                                             self._safety_discount, 
+                                             self._is_saute)
+            
+            

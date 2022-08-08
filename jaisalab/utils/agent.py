@@ -10,7 +10,6 @@ from garage.np import discount_cumsum
 from jaisalab.utils.misc import to_device
 
 #garage
-import garage
 from garage import Trainer, wrap_experiment
 from garage.experiment.deterministic import set_seed
 
@@ -74,20 +73,28 @@ def resume_experiment(ctxt=None,
     with Trainer(snapshot_config=ctxt) as trainer:
         trainer.restore(snapshot_dir)
         trainer.resume(n_epochs=n_epochs, batch_size=1024)
-    
-def log_performance(itr, batch, discount, safety_discount,
-                    prefix='Evaluation', is_saute=False):
-    """Evaluate the performance of an algorithm on a batch of episodes.
 
-    Args:
-        itr (int): Iteration number.
-        batch (SafeEpisodeBatch): The episodes to evaluate with.
-        discount (float): Discount value, from algorithm's property.
-        prefix (str): Prefix to add to all logged keys.
+def gather_performance(batch, discount, safety_discount, is_saute):
+    """Gather perfomance metrics from a batch of data in the form 
+    of a SafeEpisodeBatch object. 
+    
+    Args: 
+        batch (jaisalab.SafeEpisodeBatch): Batch of sampled data. 
+        discount (float): Discount factor for returns. 
+        safety_discount (float): Discount factor for safety returns (i.e. costs). 
+        is_saute (bool): Boolean specifying if algorithm is sautéed. 
 
     Returns:
-        numpy.ndarray: Undiscounted returns.
-
+        dict[list or float]: Dictionary, with keys:
+            * returns(list): Discounted returns observed for all episodes in batch.
+            * undiscounted_returns(list): Undiscounted returns observed for all episodes in batch.
+            * safety_returns(list): Discounted safety returns observed for all episodes in batch.
+            * undiscounted_safety_returns(list): Undiscounted safety returns observed for all 
+                episodes in batch.y of stacked,
+            * termination(list): List indicating if episodes were terminated prematurely. 
+            * success(list): List indicating if episodes weren't terminated prematurely.
+            * average_return(float): Average returns observed throughout all episodes. 
+            * average_safety_return(float): Average safety returns observed throughout all episodes. 
     """
     returns = []
     undiscounted_returns = []
@@ -113,22 +120,46 @@ def log_performance(itr, batch, discount, safety_discount,
         if 'success' in eps.env_infos:
             success.append(float(eps.env_infos['success'].any()))
 
-    average_discounted_return = np.mean([rtn[0] for rtn in returns])
-    average_discounted_safety_return = np.mean([rtn[0] for rtn in safety_returns])
+    average_return = np.mean([rtn[0] for rtn in returns])
+    average_safety_return = np.mean([rtn[0] for rtn in safety_returns])
 
+    return dict(returns=returns, 
+                undiscounted_returns=undiscounted_returns, 
+                safety_returns=safety_returns, 
+                undiscounted_safety_returns=undiscounted_safety_returns, 
+                termination=termination, 
+                success=success, 
+                average_discounted_return=average_return, 
+                average_discounted_safety_return=average_safety_return)
+
+def log_performance(itr, batch, discount, safety_discount,
+                    prefix='Evaluation', is_saute=False):
+    """Evaluate the performance of an algorithm on a batch of episodes.
+
+    Args:
+        itr (int): Iteration number.
+        batch (SafeEpisodeBatch): The episodes to evaluate with.
+        discount (float): Discount value, from algorithm's property.
+        prefix (str): Prefix to add to all logged keys.
+
+    Returns:
+        numpy.ndarray: Undiscounted returns.
+
+    """
+    performance = gather_performance(batch, discount, safety_discount, is_saute)
     with tabular.prefix(prefix + '/'):
         tabular.record('Iteration', itr)
-        tabular.record('NumEpisodes', len(returns))
-        tabular.record('AverageDiscountedReturn', average_discounted_return)
-        tabular.record('AverageReturn', np.mean(undiscounted_returns))
-        tabular.record('StdReturn', np.std(undiscounted_returns))
-        tabular.record('MaxReturn', np.max(undiscounted_returns))
-        tabular.record('MinReturn', np.min(undiscounted_returns))
-        tabular.record('AverageDiscountedSafetyReturn', average_discounted_safety_return)
-        tabular.record('AverageSafetyReturn', np.mean(undiscounted_safety_returns))
-        tabular.record('StdSafetyReturn', np.std(undiscounted_safety_returns))
-        tabular.record('TerminationRate', np.mean(termination))
-        if success:
-            tabular.record('SuccessRate', np.mean(success))
+        tabular.record('NumEpisodes', len(performance['returns']))
+        tabular.record('AverageDiscountedReturn', performance['average_discounted_return'])
+        tabular.record('AverageReturn', np.mean(performance['undiscounted_returns']))
+        tabular.record('StdReturn', np.std(performance['undiscounted_returns']))
+        tabular.record('MaxReturn', np.max(performance['undiscounted_returns']))
+        tabular.record('MinReturn', np.min(performance['undiscounted_returns']))
+        tabular.record('AverageDiscountedSafetyReturn', performance['average_discounted_safety_return'])
+        tabular.record('AverageSafetyReturn', np.mean(performance['undiscounted_safety_returns']))
+        tabular.record('StdSafetyReturn', np.std(performance['undiscounted_safety_returns']))
+        tabular.record('TerminationRate', np.mean(performance['termination']))
+        if performance['success']:
+            tabular.record('SuccessRate', np.mean(performance['success']))
 
-    return undiscounted_returns
+    return performance['undiscounted_returns']

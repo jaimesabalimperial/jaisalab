@@ -65,6 +65,7 @@ class SamplerSafe(LocalSampler):
         #impose a safety constraint to the environment
         if worker_args['safety_constraint'] is None:
             if hasattr(envs, 'supply_capacity'):
+                #use a Gaussian MLP value function by default as a safety baseline
                 safety_baseline = GaussianValueFunction(env_spec=envs.spec,
                                         hidden_sizes=(64, 64),
                                         hidden_nonlinearity=torch.tanh,
@@ -121,7 +122,7 @@ class SamplerSafe(LocalSampler):
                 be spread across the workers.
 
         Returns:
-            EpisodeBatch: The batch of collected episodes.
+            SafeEpisodeBatch: The batch of collected episodes.
 
         """
         self._update_workers(agent_update, env_update)
