@@ -7,7 +7,7 @@ import csv
 
 #jaisalab
 from jaisalab.utils.eval import (gather_replications, get_data_dict, 
-                                 order_experiments, _get_labels_from_dirs)
+                                 order_experiments, get_labels_from_dirs)
 
 class BasePlotter():
     """Plotter base class."""
@@ -17,7 +17,6 @@ class BasePlotter():
         self.data_dir = data_dir
         self.algorithm_names = ['cpo', 'trpo']
         self._dtype = dtype
-        self.use_legend = use_legend
 
         #initialise plotter and gather data from directory/ies
         self._init_plotter(fdir, data_dir, get_latest) 
@@ -45,7 +44,7 @@ class BasePlotter():
                     if len(fdir) > 4:
                         raise ValueError("Please don't input more than 4 experiments at once.")
                     
-                    self._exp_labels = _get_labels_from_dirs(fdir, self.algorithm_names)
+                    self._exp_labels = get_labels_from_dirs(fdir, self.algorithm_names)
                     self._savefig_name = '_'.join(self._exp_labels)
                 else: 
                     #case where a single experiment is inputted
@@ -76,26 +75,22 @@ class BasePlotter():
             if fdir is not None: 
                 self.fdir = fdir
                 if isinstance(fdir, (list, tuple)): #multiple experiments inputted
-                    self._exp_labels = _get_labels_from_dirs(fdir, self.algorithm_names)
+                    self._exp_labels = get_labels_from_dirs(fdir, self.algorithm_names)
                     self._savefig_name = '_'.join(self._exp_labels)
                 else: 
                     self._exp_label = fdir.split('_')[0]
                     self._savefig_name = fdir
             else: 
                 self.fdir = list(ordered_experiments.keys())
-                self._exp_labels = _get_labels_from_dirs(self.fdir, self.algorithm_names)
+                self._exp_labels = get_labels_from_dirs(self.fdir, self.algorithm_names)
                 self._savefig_name = '_'.join(self._exp_labels)
         else: 
             raise TypeError('Specified data_dir must be a string or tuple/list of strings.')
         
     def _collect_data(self):
         if isinstance(self.fdir, (list, tuple)):
-            if len(self.fdir) > 1:
-                files = [open(f'{file}/progress.csv') for file in self.fdir]
-                csvreader = [csv.reader(file) for file in files]#csv readers
-            else: 
-                file = open(f'{self.fdir[0]}/progress.csv')
-                csvreader = csv.reader(file) #csv reader
+            files = [open(f'{file}/progress.csv') for file in self.fdir]
+            csvreader = [csv.reader(file) for file in files]#csv readers
         else: 
             file = open(f'{self.fdir}/progress.csv')
             csvreader = csv.reader(file) #csv reader
@@ -113,13 +108,9 @@ class BasePlotter():
     def _collect_data_as_np(self):
         data_dict = self._collect_data()
         if isinstance(self.fdir, (list, tuple)):
-            if len(self.fdir) > 1:
-                for exp in self.fdir:
-                    for metric, values in data_dict[exp].items():
-                        data_dict[exp][metric] = np.array(values)
-            else: 
-                for metric, values in data_dict.items():
-                    data_dict[metric] = np.array(values)
+            for exp in self.fdir:
+                for metric, values in data_dict[exp].items():
+                    data_dict[exp][metric] = np.array(values)
         else:
             for metric, values in data_dict.items():
                 data_dict[metric] = np.array(values)
@@ -223,7 +214,7 @@ class BasePlotter():
         
         return quantile_probs, quantile_vals
 
-    def plot(self, x_array, y_array, ylabel, std=None, title=None):
+    def plot(self, x_array, y_array, ylabel, std=None, title=None, use_legend=True):
         """Custom plotting function that allows for multiple experiments to be 
         plotted on the same figure if specified in the fdir argument of the constructor
         method."""
@@ -244,12 +235,12 @@ class BasePlotter():
                 plt.fill_between(x_array, y_array-std, y_array+std, 
                                  color=self._plot_color, alpha=0.4)
 
-        if title: 
-            plt.title(title)
-            
         plt.xlabel('Episode')
         plt.ylabel(ylabel)
-        if self.use_legend:
+        
+        if title: 
+            plt.title(title)    
+        if use_legend:
             plt.legend(loc='best')
     
     def plot_returns(self):

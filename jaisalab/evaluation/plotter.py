@@ -32,7 +32,7 @@ class RLPlotter(BasePlotter):
         super().__init__(get_latest=get_latest, fdir=fdir, data_dir=data_dir, 
                          dtype=dtype, savefig=savefig, use_legend=use_legend, **kwargs)
 
-    def plot_returns(self):
+    def plot_returns(self, title=None, use_legend=True):
         """Plot progression of returns throughout epochs."""
         y_column = 'Evaluation/AverageReturn'
         ylabel = 'Average Return'
@@ -40,10 +40,11 @@ class RLPlotter(BasePlotter):
         std_column = 'Evaluation/StdReturn'
         x_array, y_array, std_array = self.get_data_arrays(y_column, std_column)
 
-        self.plot(x_array, y_array, ylabel, std=std_array)
+        self.plot(x_array, y_array, ylabel, std=std_array, 
+                  title=title, use_legend=use_legend)
         self.savefig(flag=1)
 
-    def plot_costs(self):
+    def plot_costs(self, title=None, use_legend=True):
         """Plot progression of costs throughout epochs."""
         y_column = 'Evaluation/AverageSafetyReturn'
         std_column = 'Evaluation/StdSafetyReturn'
@@ -51,22 +52,25 @@ class RLPlotter(BasePlotter):
 
         x_array, y_array, std_array = self.get_data_arrays(y_column, std_column)
         
-        self.plot(x_array, y_array, ylabel, std=std_array)
+        self.plot(x_array, y_array, ylabel, std=std_array, 
+                  title=title, use_legend=use_legend)
         self.savefig(flag=6)
 
-    def plot_constraint_vals(self):
-        """Plot progression of constraint values throughout epochs."""
+    def plot_constraint_vals(self, title=None, use_legend=True):
+        """Plot progression of constraint values (i.e. average discounted 
+        costs) throughout learning."""
         y_column = 'Evaluation/AverageDiscountedSafetyReturn'
         ylabel = 'Constraint Value'
 
         if self.std_data is not None: 
             x_array, y_array, std_array = self.get_data_arrays(y_column)
-            self.plot(x_array, y_array, ylabel, std=std_array)
+            self.plot(x_array, y_array, ylabel, std=std_array, 
+                      title=title, use_legend=use_legend)
         else: 
             x_array, y_array = self.get_data_arrays(y_column)
-            self.plot(x_array, y_array, ylabel)
+            self.plot(x_array, y_array, ylabel, 
+                      title=title, use_legend=use_legend)
 
-        self.plot(x_array, y_array, ylabel)
         self.savefig(flag=3)
     
     def _gaussian(self, mean, std):
@@ -101,6 +105,7 @@ class RLPlotter(BasePlotter):
             p = plt.plot(x_array, y_arrays[i], c='r')
             plt.xlabel('Returns')
             plt.ylabel('Probability')
+
         interval = duration*1000 / len(y_arrays)
         animator = ani.FuncAnimation(fig, dist_progress, interval=interval, save_count=len(y_arrays))
         self.savefig(flag=7, animator=animator)

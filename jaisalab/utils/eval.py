@@ -95,7 +95,8 @@ def gather_replications(data_dirs, fdir=None):
     
     return average_data, std_data
 
-def _get_labels_from_dirs(dirs, algorithm_names):
+def get_labels_from_dirs(dirs, algorithm_names):
+    """Get plot labels from directory names."""
     split_exp_names =[exp.split('_') for exp in dirs] 
 
     exp_labels = []
