@@ -168,10 +168,10 @@ class PolicyGradientSafe(VPG):
 
         return loss_grad
     
-    def get_vf_mean_std(self, obs):
-        """Get the mean and standard deviation of the state-value
+    def get_mean_std(self, vf, obs):
+        """Get the mean and standard deviation of a state-value
         function after training on the latest observations."""
-        mean_std_func = getattr(self._value_function, 'get_mean_std', None)
+        mean_std_func = getattr(vf, 'get_mean_std', None)
         #check if there is a function to retrieve the mean and std
         if callable(mean_std_func):
             mean, stddev = mean_std_func(obs)
@@ -181,10 +181,10 @@ class PolicyGradientSafe(VPG):
         else: 
             return None, None
     
-    def get_quantiles(self, obs):
+    def get_quantiles(self, vf, obs):
         """Get the quantiles of the state-value
         distribution after training on the latest observations."""
-        quantiles_func = getattr(self._value_function, 'get_quantiles', None)
+        quantiles_func = getattr(vf, 'get_quantiles', None)
         #check if there is a function to retrieve the mean and std
         if callable(quantiles_func):
             quantile_probs = quantiles_func(obs)
@@ -260,8 +260,11 @@ class PolicyGradientSafe(VPG):
 
         #distributional RL
         #get mean and standard deviation of initial state in IMP
-        vf_mean, vf_stddev = self.get_vf_mean_std(self.initial_state)
-        quantile_probs = self.get_quantiles(self.initial_state)
+        vf_mean, vf_stddev = self.get_mean_std(self._value_function, self.initial_state)
+        safety_mean, safety_stddev = self.get_mean_std(self._safety_baseline, self.initial_state)
+
+        vf_quantile_probs = self.get_quantiles(self._value_function, self.initial_state)
+        safety_quantile_probs = self.get_quantiles(self._safety_baseline, self.initial_state)
         
         #log interesting metrics
         with tabular.prefix(self.policy.name):
@@ -277,15 +280,23 @@ class PolicyGradientSafe(VPG):
             tabular.record('/LossBefore', vf_loss_before.item())
             tabular.record('/LossAfter', vf_loss_after.item())
             tabular.record('/dLoss', vf_loss_before.item() - vf_loss_after.item())
+
+            #value function distribution data
             if vf_mean is not None and vf_stddev is not None: 
                 tabular.record('/MeanValue', vf_mean.item())
                 tabular.record('/StdValue', vf_stddev.item())
-            if quantile_probs is not None: 
-                for j in range(len(quantile_probs)):
-                    tabular.record(f'/QuantileProbability#{j}', quantile_probs[j])
+            if vf_quantile_probs is not None: 
+                for j in range(len(vf_quantile_probs)):
+                    tabular.record(f'/QuantileProbability#{j}', vf_quantile_probs[j])
 
-            #if isinstance(self._value_function, IQNValueFunction):
-            #    tabular.record('/QuantileValues', quantiles.to_list())
+        with tabular.prefix('SafetyBaseline'):
+            #safety distribution data
+            if safety_mean is not None and safety_stddev is not None: 
+                tabular.record('/MeanValue', safety_mean.item())
+                tabular.record('/StdValue', safety_stddev.item())
+            if safety_quantile_probs is not None: 
+                for j in range(len(vf_quantile_probs)):
+                    tabular.record(f'/QuantileProbability#{j}', safety_quantile_probs[j])
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 

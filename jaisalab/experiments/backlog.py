@@ -32,8 +32,8 @@ if torch.cuda.is_available():
 else:
     set_gpu_mode(False)
 
-@wrap_experiment
-def cpo_backlog(ctxt=None, seed=1, n_epochs=800):
+@wrap_experiment(log_dir='data/cpo_backlog')
+def cpo_backlog(ctxt, seed=1, n_epochs=800):
     """Train CPO with InvManagementBacklogEnv environment.
 
     Args:
@@ -43,12 +43,6 @@ def cpo_backlog(ctxt=None, seed=1, n_epochs=800):
             determinism.
 
     """
-    # set up the dowel logger
-    log_dir = os.path.join(os.getcwd(), 'data')
-    ctxt = garage.experiment.SnapshotConfig(snapshot_dir=log_dir,
-                                            snapshot_mode='last',
-                                            snapshot_gap=1)
-
     # log to stdout
     logger.add_output(StdOutput())
 
@@ -92,8 +86,8 @@ def cpo_backlog(ctxt=None, seed=1, n_epochs=800):
     trainer.setup(algo, env)
     trainer.train(n_epochs=n_epochs, batch_size=1024)
 
-@wrap_experiment
-def trpo_backlog(ctxt=None, seed=1, n_epochs=800):
+@wrap_experiment(log_dir='data/trpo_backlog')
+def trpo_backlog(ctxt, seed=1, n_epochs=800):
     """Train TRPO with IMP environment.
 
     Args:
@@ -103,12 +97,6 @@ def trpo_backlog(ctxt=None, seed=1, n_epochs=800):
             determinism.
 
     """
-    # set up the dowel logger
-    log_dir = os.path.join(os.getcwd(), 'data')
-    ctxt = garage.experiment.SnapshotConfig(snapshot_dir=log_dir,
-                                            snapshot_mode='last',
-                                            snapshot_gap=1)
-
     # log to stdout
     logger.add_output(StdOutput())
 
@@ -152,8 +140,8 @@ def trpo_backlog(ctxt=None, seed=1, n_epochs=800):
     trainer.setup(algo, env)
     trainer.train(n_epochs=n_epochs, batch_size=1024)
 
-@wrap_experiment
-def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=800):
+@wrap_experiment(log_dir='data/saute_trpo_backlog')
+def saute_trpo_backlog(ctxt, seed=1, n_epochs=800):
     """Train TRPO with InvertedDoublePendulum-v2 environment.
 
     Args:
@@ -163,12 +151,6 @@ def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=800):
             determinism.
 
     """
-    # set up the dowel logger
-    log_dir = os.path.join(os.getcwd(), 'data')
-    ctxt = garage.experiment.SnapshotConfig(snapshot_dir=log_dir,
-                                            snapshot_mode='last',
-                                            snapshot_gap=1)
-
     # log to stdout
     logger.add_output(StdOutput())
 
@@ -214,8 +196,8 @@ def saute_trpo_backlog(ctxt=None, seed=1, n_epochs=800):
     trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 
-@wrap_experiment
-def dcpo_backlog(ctxt=None, seed=1, n_epochs=800):
+@wrap_experiment(log_dir='data/dcpo_backlog')
+def dcpo_backlog(ctxt, seed=1, n_epochs=800):
     """Train CPO with InvManagementBacklogEnv environment.
 
     Args:
@@ -225,12 +207,6 @@ def dcpo_backlog(ctxt=None, seed=1, n_epochs=800):
             determinism.
 
     """
-    # set up the dowel logger
-    log_dir = os.path.join(os.getcwd(), 'data')
-    ctxt = garage.experiment.SnapshotConfig(snapshot_dir=log_dir,
-                                            snapshot_mode='last',
-                                            snapshot_gap=1)
-
     # log to stdout
     logger.add_output(StdOutput())
 
@@ -242,21 +218,23 @@ def dcpo_backlog(ctxt=None, seed=1, n_epochs=800):
     trainer = Trainer(ctxt)
 
     policy = GaussianPolicy(env.spec,
-                               hidden_sizes=[64, 64],
-                               hidden_nonlinearity=torch.tanh,
-                               output_nonlinearity=None)
+                            hidden_sizes=[64, 64],
+                            hidden_nonlinearity=torch.tanh,
+                            output_nonlinearity=None)
 
     value_function = QRValueFunction(env_spec=env.spec,
-                                        N=102,
-                                        hidden_sizes=(64, 64),
-                                        hidden_nonlinearity=torch.tanh,
-                                        output_nonlinearity=None)
+                                     N=102,
+                                     hidden_sizes=(64, 64),
+                                     hidden_nonlinearity=torch.tanh,
+                                     output_nonlinearity=None)
 
     safety_baseline = QRValueFunction(env_spec=env.spec,
-                                         N=102, 
-                                         hidden_sizes=(64, 64),                                        
-                                         hidden_nonlinearity=torch.tanh,
-                                         output_nonlinearity=None)
+                                      N=102, 
+#                                      Vmin=0, 
+#                                      Vmax=60,
+                                      hidden_sizes=(64, 64),                                        
+                                      hidden_nonlinearity=torch.tanh,
+                                      output_nonlinearity=None)
 
     safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
 

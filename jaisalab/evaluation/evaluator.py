@@ -1,21 +1,46 @@
-#misc
-import torch 
-
 #garage
 from garage.experiment import Snapshotter
+from garage.experiment.deterministic import set_seed
 
 #jaisalab
+from jaisalab.sampler.sampler_safe import SamplerSafe
 
 class Evaluator(object):
     """Class used to evaluate trained RL policies. Makes 
     use of garage's Snapshotter instance to extract the logged
-    data by calling cloudpickle behind the scenes."""
+    data by calling cloudpickle behind the scenes.
+    
+    Args: 
+        snapshot_dir (str): Path to experiment snapshot directory. 
+    """
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, snapshot_dir) -> None:
+        self.data_dir = snapshot_dir
+        self.snapshotter = Snapshotter()
 
-    def evaluate(self, snapshot_dir, n_epochs):
-        pass
+        #with keys: ['seed', 'train_args', 'stats', 'env', 'algo', 
+        #           'n_workers', 'worker_class', 'worker_args']
+        self.data = self.snapshotter.load(snapshot_dir)
+        self._policy = self.data['algo'].policy
+        self._safety_constraint = self.data['algo'].safety_constraint
+        self._env = self.data['env']
+        self._seed = self.data['seed']
+        self._max_episode_length = self._env.max_episode_length
+        self._batch_size = self.data['train_args'].batch_size
+        self._sampler = SamplerSafe(agents=self._policy,
+                                envs=self._env, 
+                                max_episode_length=self._max_episode_length, 
+                                worker_args={'safety_constraint': self._safety_constraint})
 
-    def num_constraint_violations(self):
+    def rollout(self, n_epochs):
+        """Obtain the paths sampled by the trained agent for 
+        a given number of epochs."""
+        set_seed(self._seed)
+        evaluation = []
+        for _ in range(n_epochs):
+            eps = self._sampler._obtain_samples(self._batch_size)
+            evaluation.append(eps)
+        return evaluation
+
+    def get_evaluation(self):
         pass

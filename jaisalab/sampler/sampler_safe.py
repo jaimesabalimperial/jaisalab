@@ -89,6 +89,19 @@ class SamplerSafe(LocalSampler):
                          n_workers=n_workers,
                          worker_class=worker_class,
                          worker_args=worker_args)
+    
+    def _obtain_samples(self, num_samples):
+        batches = []
+        completed_samples = 0
+        while True:
+            for worker in self._workers:
+                batch = worker.rollout()
+                completed_samples += len(batch.actions)
+                batches.append(batch)
+                if completed_samples >= num_samples:
+                    samples = SafeEpisodeBatch.concatenate(*batches)
+                    self.total_env_steps += sum(samples.lengths)
+                    return samples
         
     def obtain_samples(self, itr, num_samples, agent_update, env_update=None):
         """Collect at least a given number transitions (timesteps).
@@ -112,16 +125,6 @@ class SamplerSafe(LocalSampler):
 
         """
         self._update_workers(agent_update, env_update)
-        batches = []
-        completed_samples = 0
-        while True:
-            for worker in self._workers:
-                batch = worker.rollout()
-                completed_samples += len(batch.actions)
-                batches.append(batch)
-                if completed_samples >= num_samples:
-                    samples = SafeEpisodeBatch.concatenate(*batches)
-                    self.total_env_steps += sum(samples.lengths)
-                    return samples
+        return self._obtain_samples(num_samples)
 
     

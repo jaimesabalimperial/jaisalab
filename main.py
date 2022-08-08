@@ -15,21 +15,27 @@ def test_saute_trpo_backlog(seed):
 def test_dcpo_backlog(seed):
     dcpo_backlog(seed=seed)
 
-
 def plot_experiment():
     #fdir = ['trpo_backlog_1', 'cpo_backlog_1', 'saute_trpo_backlog_1', 'dcpo_backlog_1']
-    plotter = RLPlotter(fdir='dcpo_backlog_1')
+    #plotter = RLPlotter()
     #plotter.plot_returns()
     #plotter.plot_constraint_vals()
     #plotter.plot_costs()
     #plotter.plot_gaussian_progression(num_points=400)
     #plotter.plot_final_distribution()
-    plotter.plot_quantiles_progression(interval=10)
+    #plotter.plot_quantiles_progression(interval=10)
+    pass
+
+def train_seed(seed):
+    test_trpo_backlog(seed=seed)
+    test_cpo_backlog(seed=seed)
+    test_saute_trpo_backlog(seed=seed)
+    test_dcpo_backlog(seed=seed)
 
 if __name__ == '__main__':
-    seed_val = 8
+    seed_val = 1
+    train_seed(seed=seed_val)
     #test_trpo_backlog(seed=seed_val)
     #test_cpo_backlog(seed=seed_val)
     #test_saute_trpo_backlog(seed=seed_val)
-    test_dcpo_backlog(seed=seed_val)
-    #plot_experiment()
+    #test_dcpo_backlog(seed=seed_val)
