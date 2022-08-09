@@ -106,20 +106,24 @@ class ConjugateConstraintOptimizer(Optimizer):
             if c <0 and B < 0:
                 # point in trust region is feasible and safety boundary doesn't intersect
                 # ==> entire trust region is feasible
+                logger.log('entire TR is feasible!')
                 optim_case = 3
             elif c < 0 and B > 0:
                 # x = 0 is feasible and safety boundary intersects
                 # ==> most of trust region is feasible
+                logger.log('most of TR is feasible!')
                 optim_case = 2
             elif c > 0 and B > 0:
                 # x = 0 is infeasible (bad! unsafe!) and safety boundary intersects
                 # ==> part of trust region is feasible
                 # ==> this is 'recovery mode'
+                logger.log('recovery mode: part of TR is feasible!')
                 optim_case = 1
             else:
                 # x = 0 infeasible (bad! unsafe!) and safety boundary doesn't intersect
                 # ==> whole trust region infeasible
                 # ==> optimization problem infeasible!!!
+                logger.log("optimisation problem infeasible!")
                 optim_case = 0
 
             # default dual vars, which assume safety constraint inactive

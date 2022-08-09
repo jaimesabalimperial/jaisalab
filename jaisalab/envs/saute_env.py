@@ -1,3 +1,7 @@
+"""Directly taken from https://github.com/huawei-noah/HEBO/tree/master/SAUTE
+for implementation of SAUTE algorithms, which consist of adding a wrapper
+around any OpenAI Gym environment in a plug-n-play manner for any RL algorithm.
+"""
 import numpy as np
 import torch
 from gym import Env

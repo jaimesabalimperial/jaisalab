@@ -58,9 +58,11 @@ class QRValueFunction(ValueFunction):
                  N, 
                  Vmin=-800,
                  Vmax=800,
+                 max_cost=None, #only relevant for safety baseline
+                 tolerance=0.01, 
                  hidden_sizes=(32, 32),
                  hidden_nonlinearity=torch.tanh,
-                 hidden_w_init=nn.init.xavier_uniform_,
+                 hidden_w_init=nn.init.kaiming_normal_,
                  hidden_b_init=nn.init.zeros_,
                  output_nonlinearity=None,
                  output_w_init=nn.init.xavier_uniform_,
@@ -72,6 +74,8 @@ class QRValueFunction(ValueFunction):
         input_dim = env_spec.observation_space.flat_dim
         output_dim = 1
         self.N = N
+        self.max_cost = max_cost
+        self.tolerance = tolerance
     
         self.module = DistributionalModule(
                                 input_dim=input_dim,
@@ -86,14 +90,11 @@ class QRValueFunction(ValueFunction):
                                 output_b_init=output_b_init,
                                 layer_normalization=layer_normalization)
     
-        
         #environment-specific
         self.Vmin = Vmin
         self.Vmax = Vmax
         self.delta_z = (Vmax-Vmin)/(N-1)
         self.V_range = torch.tensor([self.Vmin + i*self.delta_z for i in range(self.N)])
-        # set cumulative density
-        self.cumulative_density = torch.FloatTensor((2 * np.arange(self.N) + 1) / (2.0 * self.N))
     
     def forward(self, obs, log_output=False, dist_output=False):
         """Forward call to model."""
@@ -147,32 +148,3 @@ class QRValueFunction(ValueFunction):
         loss = -ll.mean()
         return loss
 
-        
-"""
-    def compute_loss(self, obs, next_obs, rewards, 
-                     masks, target_vf, gamma):
-        '''Compute quantile regression loss.'''
-        V_log_dist_pred = self.forward(obs, log_output=True) 
-        V_log_dist_pred = V_log_dist_pred.squeeze(1)
-        V_target = target_vf.forward(next_obs, dist_output=True) #calculate value using target network
-
-        m = torch.zeros(*obs.shape[:-1], self.N)
-        for j in range(self.N):
-            T_zj = torch.clamp(rewards + gamma * (1-masks) * (self.Vmin + j*self.delta_z), min = self.Vmin, max = self.Vmax)
-            l = bj.floor().long().unsqueeze(1)
-            bj = (T_zj - self.Vmin)/self.delta_z
-
-            V_narrowed = torch.narrow(V_target, -1, j, 1)
-            u = bj.ceil().long().unsqueeze(1)
-            mask_Q_l.scatter_(1, l, V_narrowed.squeeze(1))
-            mask_Q_u = torch.zeros(m.size())
-            mask_Q_u.scatter_(1, u, V_narrowed.squeeze(1))
-            m += torch.matmul((u.float() + (l == u).float()-bj.float()), mask_Q_l)
-            m += torch.matmul((-l.float()+bj.float()), mask_Q_u)
-            mask_Q_l = torch.zeros(m.size())
-
-        #calculate quantile-regression loss
-        loss = - torch.sum(torch.sum(torch.mul(V_log_dist_pred, m),-1),-1) / obs.shape[0]
-
-        return loss
-"""

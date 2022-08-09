@@ -18,6 +18,8 @@ jaisalab/__pycache__/
 **/data
 **/plots
 **/dcpo_data
+**/good_seeds
+**bad_seeds
 
 # C extensions
 *.so
