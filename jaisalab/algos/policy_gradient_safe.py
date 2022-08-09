@@ -4,15 +4,9 @@ is considered (i.e. where there is a cost associated with state-action pairs).
 
 Author: Jaime Sabal Bermúdez
 """
-import torch
-from dowel import tabular
-import copy
-import inspect
-
 #garage
 from garage.torch.algos import VPG
-from garage.torch import (compute_advantages, filter_valids, 
-                          global_device, state_dict_to)
+from garage.torch import (compute_advantages, filter_valids)
 from garage.torch._functions import np_to_torch, zero_optim_grads
 from garage.np import discount_cumsum
 
@@ -23,7 +17,10 @@ from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 from jaisalab.value_functions import GaussianValueFunction
 
+#misc
 import numpy as np
+import torch
+from dowel import tabular
 
 
 class PolicyGradientSafe(VPG):

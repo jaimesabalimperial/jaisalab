@@ -77,10 +77,10 @@ class IQNModule(nn.Module):
         self.noisy = noisy
         self.N = N
         self.episode_length = episode_length
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
         # Starting from 0 as in the paper 
         self.pis = torch.FloatTensor([[np.pi*i for i in range(1,self._n_cos+1)] \
-                                       for _ in range(episode_length)]).view(1,episode_length,self._n_cos).to(self.device) 
+                                       for _ in range(episode_length)]).view(1,episode_length,self._n_cos)
 
         layer = LinearNoise if noisy else nn.Linear #choose type of fully connected layer
         
@@ -93,7 +93,7 @@ class IQNModule(nn.Module):
     
     def get_cosine_values(self, batch_size):
         """Calculates cosine values for sample embedding."""
-        samples = torch.rand(batch_size, self.episode_length, self.N).unsqueeze(-1).to(self.device) 
+        samples = torch.rand(batch_size, self.episode_length, self.N).unsqueeze(-1)
         cos_values = torch.cos(samples*self.pis.unsqueeze(2))
 
         return cos_values, samples
@@ -136,18 +136,17 @@ class IQNModule(nn.Module):
     
 
 class Gaussian(object):
-    def __init__(self, mu, rho, device=torch.device('cuda:0' if torch.cuda.is_available else 'cpu')):
+    def __init__(self, mu, rho):
         super().__init__()
         self.mu = mu
         self.rho = rho
         self.normal = torch.distributions.Normal(0, 1)
-        self.device = device
 
     def sigma(self):
         return torch.log1p(torch.exp(self.rho))
 
     def sample(self):
-        epsilon = self.normal.sample(self.rho.size()).to(self.device)
+        epsilon = self.normal.sample(self.rho.size())
         return self.mu + self.sigma * epsilon
 
     def log_prob(self, input):

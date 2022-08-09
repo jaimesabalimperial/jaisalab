@@ -3,9 +3,6 @@ Solving the Inventory Management Backlog Environment with a variety of
 Constrained RL algorithms.
 Author: Jaime Sabal
 """
-import os 
-import numpy as np
-
 #misc
 import torch
 from dowel import logger, StdOutput
@@ -18,7 +15,7 @@ from jaisalab.algos.trpo import SafetyTRPO
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 from jaisalab.value_functions import GaussianValueFunction, QRValueFunction
-from jaisalab.policies import SemiImplicitPolicy, GaussianPolicy
+from jaisalab.policies import GaussianPolicy
 
 #garage
 from garage import Trainer, wrap_experiment
