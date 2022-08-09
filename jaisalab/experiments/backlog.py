@@ -21,16 +21,9 @@ from jaisalab.value_functions import GaussianValueFunction, QRValueFunction
 from jaisalab.policies import SemiImplicitPolicy, GaussianPolicy
 
 #garage
-import garage
 from garage import Trainer, wrap_experiment
 from garage.experiment.deterministic import set_seed
-from garage.torch import set_gpu_mode
 
-#check if cuda is available
-if torch.cuda.is_available():
-    set_gpu_mode(True)
-else:
-    set_gpu_mode(False)
 
 @wrap_experiment(log_dir='data/cpo_backlog')
 def cpo_backlog(ctxt, seed=1, n_epochs=800):
@@ -230,8 +223,6 @@ def dcpo_backlog(ctxt, seed=1, n_epochs=800):
 
     safety_baseline = QRValueFunction(env_spec=env.spec,
                                       N=102, 
-#                                      Vmin=0, 
-#                                      Vmax=60,
                                       hidden_sizes=(64, 64),                                        
                                       hidden_nonlinearity=torch.tanh,
                                       output_nonlinearity=None)

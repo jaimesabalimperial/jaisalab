@@ -2,9 +2,12 @@
 import torch
 
 #jaisalab
-from jaisalab.optimizers import ConjugateConstraintOptimizer, OptimizerWrapper
+from jaisalab.optimizers import ConjugateConstraintOptimizer
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.algos import PolicyGradientSafe
+
+#garage
+from garage.torch.optimizers import OptimizerWrapper
 
 
 class CPO(PolicyGradientSafe):

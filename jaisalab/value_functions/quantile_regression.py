@@ -146,6 +146,8 @@ class QRValueFunction(ValueFunction):
         ll = log_prob(returns.reshape(-1, 1), mean, std)
         loss = -ll.mean()
         return loss
+
+        
 """
     def compute_loss(self, obs, next_obs, rewards, 
                      masks, target_vf, gamma):
@@ -172,18 +174,5 @@ class QRValueFunction(ValueFunction):
         #calculate quantile-regression loss
         loss = - torch.sum(torch.sum(torch.mul(V_log_dist_pred, m),-1),-1) / obs.shape[0]
 
-        return loss
-"""
-
-"""
-    def compute_loss(self, obs, returns):
-        #retrieve quantile values to estimate probabilities for
-        z_dist = self.V_range.repeat(*obs.shape[:-1], 1)
-        z_dist = torch.unsqueeze(z_dist, -1).float()
-
-        V_dist = self.forward(obs, dist_output=True)
-        mean, std = calc_mean_std(V_dist, z_dist) #get mean and standard deviation
-        ll = log_prob(returns.reshape(-1, 1), mean, std)
-        loss = -ll.mean()
         return loss
 """

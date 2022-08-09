@@ -3,13 +3,11 @@ from logging import warning
 import torch
 
 #garage
-from garage.torch.optimizers import ConjugateGradientOptimizer
+from garage.torch.optimizers import ConjugateGradientOptimizer, OptimizerWrapper
 
 #jaisalab
 from jaisalab.algos.policy_gradient_safe import PolicyGradientSafe
 from jaisalab.safety_constraints import SoftInventoryConstraint
-from jaisalab.optimizers import OptimizerWrapper
-
 
 
 class SafetyTRPO(PolicyGradientSafe):

@@ -390,32 +390,4 @@ class PolicyGradientSafe(VPG):
 
             return loss
 
-    @property
-    def networks(self):
-        """Return all the networks within the model.
-
-        Returns:
-            list: A list of networks.
-
-        """
-        return [self.policy, self._value_function, 
-                self._safety_baseline]
-    
-    def to(self, device=None):
-        """Put all the networks within the model on device.
-
-        Args:
-            device (str): ID of GPU or CPU.
-        """
-        if device is None:
-            device = global_device()
-        for net in self.networks:
-            net.to(device)
-        else: #move state dictionaries of networks to device
-            self._safety_optimizer.load_state_dict(
-                state_dict_to(self._safety_optimizer.state_dict(), device))
-            self._vf_optimizer.load_state_dict(
-                state_dict_to(self._vf_optimizer.state_dict(), device))
-            self._policy_optimizer.load_state_dict(
-                state_dict_to(self._policy_optimizer.state_dict(), device))
     

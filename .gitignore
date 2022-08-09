@@ -17,6 +17,7 @@ jaisalab/__pycache__/
 **/data8
 **/data
 **/plots
+**/dcpo_data
 
 # C extensions
 *.so
