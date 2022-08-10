@@ -114,6 +114,7 @@ class CPO(PolicyGradientSafe):
         
         self.max_quad_constraint = step_size 
         self.max_lin_constraint = self.safety_constraint.safety_step
+        
 
     def _compute_objective(self, advantages, obs, actions, rewards):
         r"""TRPO Compute objective value. 
@@ -178,16 +179,15 @@ class CPO(PolicyGradientSafe):
         safety_loss_grad = self._get_grad(safety_loss)
         safety_loss_grad = safety_loss_grad/torch.norm(safety_loss_grad) 
 
-        #could input loss and arbitrary step size OR could input actual calculated costs
-        #and use a more interpretable maximum value for its constraint
-        lin_leq_constraint = (lambda: -self._compute_loss_with_adv(obs, actions, safety_rewards, safety_advantages), 
-                                self.max_lin_constraint)         
+        #define linear (safety) and quadratic (kl) constraints
+        lin_leq_constraint = (self.constraint_value, self.max_lin_constraint)         
         
         quad_leq_constraint = (lambda: self._compute_kl_constraint(obs), 
                                 self.max_quad_constraint)
 
         self._policy_optimizer.step(
             f_loss= lambda: self._compute_loss_with_adv(obs, actions, rewards, advantages),
+            f_safety= lambda: -self._compute_loss_with_adv(obs, actions, safety_rewards, safety_advantages),
             lin_leq_constraint= lin_leq_constraint,                                           
             quad_leq_constraint= quad_leq_constraint, 
             loss_grad=loss_grad, 

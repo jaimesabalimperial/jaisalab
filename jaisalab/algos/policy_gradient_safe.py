@@ -219,6 +219,9 @@ class PolicyGradientSafe(VPG):
         safety_rewards_flat = np_to_torch(eps.safety_rewards)
         safety_returns = np_to_torch(np.stack([discount_cumsum(safety_reward, self.safety_discount)
                                                 for safety_reward in eps.padded_safety_rewards]))
+        
+        #necessary as per jachiam's cpo repository
+        self.safety_rescale = len(safety_rewards) / sum([len(path) for path in safety_rewards])
 
         #calculate safety baseline
         with torch.no_grad():
@@ -229,6 +232,7 @@ class PolicyGradientSafe(VPG):
             safety_rewards += self._policy_ent_coeff * policy_entropies
 
         safety_returns_flat = torch.cat(filter_valids(safety_returns, valids))
+
         safety_advs_flat = self._compute_safety_advantage(safety_rewards, valids, safety_baselines)
 
         #compute relevant metrics prior to training for logging
@@ -236,6 +240,10 @@ class PolicyGradientSafe(VPG):
             policy_loss_before = self._compute_loss_with_adv(obs_flat, actions_flat, rewards_flat, advs_flat)
             vf_loss_before = self._value_function.compute_loss(obs_flat, returns_flat)
             kl_before = self._compute_kl_constraint(obs)
+
+        #compute constraint value (needed for CPO)
+        performance = gather_performance(eps, self._discount, self.safety_discount, self._is_saute)
+        self.constraint_value = performance['average_discounted_safety_return'] 
 
         #train policy, value function, safety baseline
         self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
@@ -292,11 +300,14 @@ class PolicyGradientSafe(VPG):
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 
-        undiscounted_returns = log_performance(itr,
-                                               eps,
-                                               discount=self._discount,
-                                               safety_discount=self.safety_discount, 
-                                               is_saute = self._is_saute)
+        performance = log_performance(itr,
+                                     eps,
+                                     discount=self._discount,
+                                     safety_discount=self.safety_discount, 
+                                     is_saute = self._is_saute)
+        
+        undiscounted_returns = performance['undiscounted_returns']
+
         return np.mean(undiscounted_returns)
     
 

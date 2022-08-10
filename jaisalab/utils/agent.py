@@ -162,4 +162,4 @@ def log_performance(itr, batch, discount, safety_discount,
         if performance['success']:
             tabular.record('SuccessRate', np.mean(performance['success']))
 
-    return performance['undiscounted_returns']
+    return performance

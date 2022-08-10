@@ -72,6 +72,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         delta = 2 * self._max_quad_constraint_val
 
         eps = 1e-8
+        logger.log(f'lin constraint = {lin_constraint}')
         c = lin_constraint - self._max_lin_constraint_val #should be > 0 if constraint 
 
         if c > 0: 
@@ -202,11 +203,12 @@ class ConjugateConstraintOptimizer(Optimizer):
 
         return flat_descent_step
 
-    def step(self, f_loss, lin_leq_constraint, quad_leq_constraint, 
-             loss_grad, safety_loss_grad):  # pylint: disable=arguments-differ
+    def step(self, f_loss, f_safety, lin_leq_constraint, 
+             quad_leq_constraint, loss_grad, safety_loss_grad):  # pylint: disable=arguments-differ
         """Take an optimization step.
         Args:
-            f_loss (callable): Function to compute the loss.
+            f_loss (callable): Function to compute the objective loss.
+            f_safety (callable): Function to compute safety loss. 
             lin_leq_constraint (callable): Function to compute safety loss.
             quad_leq_constraint (callable): Function to compute the constraint value (KL-Divergence).
             loss_grad: Gradient of objective loss. 
@@ -234,11 +236,11 @@ class ConjugateConstraintOptimizer(Optimizer):
 
         # Calculate optimium step direction and replace nan with 0.
         flat_descent_step = self._get_optimal_step_dir(f_Ax, params, step_dir, 
-                                                       safety_loss_grad, constraint_term_2())
+                                                       safety_loss_grad, constraint_term_2)
 
         # Update parameters using backtracking line search
         self._backtracking_line_search(params, flat_descent_step, f_loss=f_loss,
-                                       f_safety=constraint_term_2, f_constraint=constraint_term_1)
+                                       f_safety=f_safety, f_constraint=constraint_term_1)
 
     @property
     def state(self):
