@@ -12,7 +12,7 @@ from garage.np import discount_cumsum
 
 #jaisalab
 from jaisalab.sampler.safe_worker import SafeWorker
-from jaisalab.utils import log_performance
+from jaisalab.utils import log_performance, gather_performance
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 from jaisalab.value_functions import GaussianValueFunction
@@ -44,13 +44,11 @@ class PolicyGradientSafe(VPG):
                 sampler,
                 policy_optimizer=None,
                 vf_optimizer=None,
-                safety_constrained_optimizer=True,
                 safety_constraint=None,
-                safety_discount=1,
+                safety_discount=1.,
                 safety_gae_lambda=1,
                 center_safety_vals=True,
                 num_train_per_epoch=1,
-                step_size=0.01,
                 discount=0.99,
                 gae_lambda=0.98,
                 center_adv=True,
@@ -78,9 +76,6 @@ class PolicyGradientSafe(VPG):
         
         self._safety_optimizer = self.safety_constraint.baseline_optimizer
         self._safety_baseline = self.safety_constraint.baseline
-        self.safety_constrained_optimizer = safety_constrained_optimizer
-        self.step_size = step_size 
-        self.safety_step_size = self.safety_constraint.safety_step
 
         if sampler is None: 
             self.sampler = SamplerSafe()
@@ -292,7 +287,7 @@ class PolicyGradientSafe(VPG):
                 tabular.record('/MeanValue', safety_mean.item())
                 tabular.record('/StdValue', safety_stddev.item())
             if safety_quantile_probs is not None: 
-                for j in range(len(vf_quantile_probs)):
+                for j in range(len(safety_quantile_probs)):
                     tabular.record(f'/QuantileProbability#{j}', safety_quantile_probs[j])
 
         self._old_policy.load_state_dict(self.policy.state_dict())
@@ -329,62 +324,5 @@ class PolicyGradientSafe(VPG):
         for dataset in self._safety_optimizer.get_minibatch(obs, safety_returns):
             self.safety_constraint._train_safety_baseline(*dataset)
 
-
-    def _train_policy(self, obs, actions, rewards, advantages, 
-                      safety_rewards, safety_advantages):
-        r"""Train the policy.
-
-        Args:
-            obs (torch.Tensor): Observation from the environment
-                with shape :math:`(N, O*)`.
-            actions (torch.Tensor): Actions fed to the environment
-                with shape :math:`(N, A*)`.
-            rewards (torch.Tensor): Acquired rewards
-                with shape :math:`(N, )`.
-            advantages (torch.Tensor): Advantage value at each step
-                with shape :math:`(N, )`.
-
-        Returns:
-            torch.Tensor: Calculated mean scalar value of policy loss (float).
-
-        """
-        # pylint: disable=protected-access
-        zero_optim_grads(self._policy_optimizer._optimizer)
-        loss = self._compute_loss_with_adv(obs, actions, rewards, advantages)
-        
-        #if using conjugate constraint optimizer step has different args
-        if self.safety_constrained_optimizer:
-            #calculate objective gradients and normalise (if specified)
-            loss_grad = self._get_grad(loss)
-            if self.grad_norm:
-                loss_grad = loss_grad/torch.norm(loss_grad) 
-
-            #calculate safety_loss and grad
-            #safety loss is in opposite direction as objective loss
-            safety_loss = -self._compute_loss_with_adv(obs, actions, safety_rewards, safety_advantages)
-            safety_loss_grad = self._get_grad(safety_loss)
-            safety_loss_grad = safety_loss_grad/torch.norm(safety_loss_grad) 
-
-            lin_leq_constraint = (lambda: -self._compute_loss_with_adv(obs, actions, safety_rewards, safety_advantages), 
-                                  self.safety_step_size)
-            
-            quad_leq_constraint = (lambda: self._compute_kl_constraint(obs), self.step_size)
-
-            self._policy_optimizer.step(
-                f_loss= lambda: self._compute_loss_with_adv(obs, actions, rewards, advantages),
-                lin_leq_constraint= lin_leq_constraint,                                           
-                quad_leq_constraint= quad_leq_constraint, 
-                loss_grad=loss_grad, 
-                safety_loss_grad=safety_loss_grad)
-
-            return loss, safety_loss
-        else: 
-            loss.backward()
-            self._policy_optimizer.step(
-                f_loss=lambda: self._compute_loss_with_adv(obs, actions, rewards,
-                                                        advantages),
-                f_constraint=lambda: self._compute_kl_constraint(obs))
-
-            return loss
 
     

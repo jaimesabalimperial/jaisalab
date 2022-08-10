@@ -11,7 +11,7 @@ from dowel import logger, StdOutput
 from jaisalab.utils.env import env_setup
 from jaisalab.envs.inventory_management import InvManagementBacklogEnv, SauteInvManagementBacklogEnv
 from jaisalab.algos.cpo import CPO
-from jaisalab.algos.trpo import SafetyTRPO
+from jaisalab.algos.trpo_safe import SafetyTRPO
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 from jaisalab.value_functions import GaussianValueFunction, QRValueFunction

@@ -52,7 +52,6 @@ class QRValueFunction(ValueFunction):
         name (str): The name of the value function.
 
     """
-
     def __init__(self,
                  env_spec,
                  N, 
@@ -61,8 +60,8 @@ class QRValueFunction(ValueFunction):
                  max_cost=None, #only relevant for safety baseline
                  tolerance=0.01, 
                  hidden_sizes=(32, 32),
-                 hidden_nonlinearity=torch.tanh,
-                 hidden_w_init=nn.init.kaiming_normal_,
+                 hidden_nonlinearity=torch.relu,
+                 hidden_w_init=nn.init.xavier_normal_,
                  hidden_b_init=nn.init.zeros_,
                  output_nonlinearity=None,
                  output_w_init=nn.init.xavier_uniform_,

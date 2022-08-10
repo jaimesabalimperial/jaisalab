@@ -8,6 +8,7 @@ from jaisalab.algos import PolicyGradientSafe
 
 #garage
 from garage.torch.optimizers import OptimizerWrapper
+from garage.torch._functions import zero_optim_grads
 
 
 class CPO(PolicyGradientSafe):
@@ -75,6 +76,7 @@ class CPO(PolicyGradientSafe):
                  entropy_method='no_entropy', 
                  grad_norm=False):
 
+        #CPO uses ConjugateConstraintOptimizer
         if policy_optimizer is None:
             policy_optimizer = OptimizerWrapper(ConjugateConstraintOptimizer,
                                                 policy)
@@ -89,20 +91,17 @@ class CPO(PolicyGradientSafe):
         if safety_constraint is None:
             safety_constraint = SoftInventoryConstraint()
 
-
         super().__init__(env_spec=env_spec,
                          policy=policy,
                          value_function=value_function,
                          sampler=sampler,
                          policy_optimizer=policy_optimizer,
                          vf_optimizer=vf_optimizer,
-                         safety_constrained_optimizer=True, #CPO uses ConjugateConstraintOptimizer
                          safety_constraint=safety_constraint,
                          safety_discount=safety_discount,
                          safety_gae_lambda=safety_gae_lambda,
                          center_safety_vals=center_safety_vals,
                          num_train_per_epoch=num_train_per_epoch,
-                         step_size=step_size,
                          discount=discount,
                          gae_lambda=gae_lambda,
                          center_adv=center_adv,
@@ -112,4 +111,86 @@ class CPO(PolicyGradientSafe):
                          stop_entropy_gradient=stop_entropy_gradient,
                          entropy_method=entropy_method,
                          grad_norm=grad_norm)
+        
+        self.max_quad_constraint = step_size 
+        self.max_lin_constraint = self.safety_constraint.safety_step
 
+    def _compute_objective(self, advantages, obs, actions, rewards):
+        r"""TRPO Compute objective value. 
+
+        Args:
+            advantages (torch.Tensor): Advantage value at each step
+                with shape :math:`(N \dot [T], )`.
+            obs (torch.Tensor): Observation from the environment
+                with shape :math:`(N \dot [T], O*)`.
+            actions (torch.Tensor): Actions fed to the environment
+                with shape :math:`(N \dot [T], A*)`.
+            rewards (torch.Tensor): Acquired rewards
+                with shape :math:`(N \dot [T], )`.
+
+        Returns:
+            torch.Tensor: Calculated objective values
+                with shape :math:`(N \dot [T], )`.
+
+        """
+        with torch.no_grad():
+            old_ll = self._old_policy(obs)[0].log_prob(actions)
+
+        new_ll = self.policy(obs)[0].log_prob(actions)
+        likelihood_ratio = (new_ll - old_ll).exp()
+
+        # Calculate surrogate
+        surrogate = likelihood_ratio * advantages
+
+        return surrogate
+    
+
+    def _train_policy(self, obs, actions, rewards, advantages, 
+                      safety_rewards, safety_advantages):
+        r"""Train the policy.
+
+        Args:
+            obs (torch.Tensor): Observation from the environment
+                with shape :math:`(N, O*)`.
+            actions (torch.Tensor): Actions fed to the environment
+                with shape :math:`(N, A*)`.
+            rewards (torch.Tensor): Acquired rewards
+                with shape :math:`(N, )`.
+            advantages (torch.Tensor): Advantage value at each step
+                with shape :math:`(N, )`.
+
+        Returns:
+            torch.Tensor: Calculated mean scalar value of policy loss (float).
+
+        """
+        # pylint: disable=protected-access
+        zero_optim_grads(self._policy_optimizer._optimizer)
+        loss = self._compute_loss_with_adv(obs, actions, rewards, advantages)
+        
+        #calculate objective gradients and normalise (if specified)
+        loss_grad = self._get_grad(loss)
+        if self.grad_norm:
+            loss_grad = loss_grad/torch.norm(loss_grad) 
+
+        #calculate safety_loss and grad
+        #safety loss is in opposite direction as objective loss
+        safety_loss = -self._compute_loss_with_adv(obs, actions, safety_rewards, safety_advantages)
+        safety_loss_grad = self._get_grad(safety_loss)
+        safety_loss_grad = safety_loss_grad/torch.norm(safety_loss_grad) 
+
+        #could input loss and arbitrary step size OR could input actual calculated costs
+        #and use a more interpretable maximum value for its constraint
+        lin_leq_constraint = (lambda: -self._compute_loss_with_adv(obs, actions, safety_rewards, safety_advantages), 
+                                self.max_lin_constraint)         
+        
+        quad_leq_constraint = (lambda: self._compute_kl_constraint(obs), 
+                                self.max_quad_constraint)
+
+        self._policy_optimizer.step(
+            f_loss= lambda: self._compute_loss_with_adv(obs, actions, rewards, advantages),
+            lin_leq_constraint= lin_leq_constraint,                                           
+            quad_leq_constraint= quad_leq_constraint, 
+            loss_grad=loss_grad, 
+            safety_loss_grad=safety_loss_grad)
+
+        return loss, safety_loss
