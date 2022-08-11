@@ -11,20 +11,20 @@ class RLPlotter(BasePlotter):
     algorithms implemented through the jaisalab and garage frameworks.
     
     Args: 
-        - plot_latest (bool): Wether to plot the latest results found in the default
+        plot_latest (bool): Wether to plot the latest results found in the default
           data directory --> 'data/local/experiment'. If the default directory is specified 
           by the user, this must also be specified in the data_dir argument. 
         
-        - fdir (str, list): Name of the experiment results directory within the data directory.
+        fdir (str, list): Name of the experiment results directory within the data directory.
           If a list or tuple, all the experiments specified will be plotted. If None, plot_latest
           should be True. *NOTE*: It is assumed that fdirs (i.e. experiment functions) are named 
           in the format '{algorithm}_{environment}'. 
 
-        - data_dir (str): Data directory. Default = 'data/local/experiment'.
+        data_dir (str): Data directory. Default = 'data/local/experiment'.
 
-        - dtype (str): Datatype of parsed results. Options=('np'), Default='np'.
+        dtype (str): Datatype of parsed results. Options=('np'), Default='np'.
 
-        - savefig (bool): Wether to save plotted figures (By default these are saved to 'plots' 
+        savefig (bool): Wether to save plotted figures (By default these are saved to 'plots' 
           directory within the current working directory). 
     """
     def __init__(self, get_latest=True, fdir=None, data_dir='data/local/experiment', 
@@ -157,7 +157,10 @@ class RLPlotter(BasePlotter):
         save_count = len(quantile_probs) // interval
         animator = ani.FuncAnimation(fig, dist_progress, interval=time_interval, save_count=save_count)
         self.savefig(flag=9, animator=animator)
+    
 
+    def plot_evaluation(self, test_data):
+        pass
 
     
     
