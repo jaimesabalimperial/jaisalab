@@ -221,7 +221,7 @@ class PolicyGradientSafe(VPG):
                                                 for safety_reward in eps.padded_safety_rewards]))
         
         #necessary as per jachiam's cpo repository
-        self.safety_rescale = len(safety_rewards) / sum([len(path) for path in safety_rewards])
+        self.rescale_factor = np.mean([len(path) for path in safety_rewards])
 
         #calculate safety baseline
         with torch.no_grad():

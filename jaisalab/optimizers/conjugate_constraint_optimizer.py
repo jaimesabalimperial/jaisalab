@@ -74,6 +74,11 @@ class ConjugateConstraintOptimizer(Optimizer):
         eps = 1e-8
         c = lin_constraint - self._max_lin_constraint_val #should be > 0 if constraint 
 
+        #need to adjust by rescale factor (avg trajectory length) since true constraint is 
+        #an average over trajectories, not state-action pairs, so true_constraint = T*surrogate_objective
+        #where T is the average trajectory length
+        c /= (self.rescale_factor + eps) 
+
         if c > 0: 
             logger.log("warning! safety constraint is already violated")
         else: 
@@ -203,7 +208,8 @@ class ConjugateConstraintOptimizer(Optimizer):
         return flat_descent_step
 
     def step(self, f_loss, f_safety, lin_leq_constraint, 
-             quad_leq_constraint, loss_grad, safety_loss_grad):  # pylint: disable=arguments-differ
+             quad_leq_constraint, loss_grad, safety_loss_grad, 
+            rescale_factor):  # pylint: disable=arguments-differ
         """Take an optimization step.
         Args:
             f_loss (callable): Function to compute the objective loss.
@@ -225,6 +231,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         
         self._max_quad_constraint_val = constraint_value_1
         self._max_lin_constraint_val = constraint_value_2
+        self.rescale_factor = rescale_factor
 
         # Build Hessian-vector-product function
         f_Ax = _build_hessian_vector_product(func=constraint_term_1, params=params,

@@ -191,6 +191,7 @@ class CPO(PolicyGradientSafe):
             lin_leq_constraint= lin_leq_constraint,                                           
             quad_leq_constraint= quad_leq_constraint, 
             loss_grad=loss_grad, 
-            safety_loss_grad=safety_loss_grad)
+            safety_loss_grad=safety_loss_grad,
+            rescale_factor=self.rescale_factor)
 
         return loss, safety_loss

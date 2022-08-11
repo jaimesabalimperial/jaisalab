@@ -17,7 +17,7 @@ class SoftInventoryConstraint(BaseConstraint):
         baseline_optimizer (torch.optim.Optimizer): Safety baseline optimizer. 
         penalty (float): Penalty for violating constraint. 
     """
-    def __init__(self, max_value=25., baseline=None, 
+    def __init__(self, max_value=15., baseline=None, 
                  baseline_optimizer=None, penalty=1., 
                  discount=1., **kwargs):
         super().__init__(max_value, baseline=baseline, 
