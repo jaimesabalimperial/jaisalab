@@ -72,7 +72,6 @@ class ConjugateConstraintOptimizer(Optimizer):
         delta = 2 * self._max_quad_constraint_val
 
         eps = 1e-8
-        logger.log(f'lin constraint = {lin_constraint}')
         c = lin_constraint - self._max_lin_constraint_val #should be > 0 if constraint 
 
         if c > 0: 

@@ -22,8 +22,8 @@ def saute_env(cls):
             min_rel_budget:float=1., # minimum relative (with respect to safety_budget) budget
             max_rel_budget:float=1., # maximum relative (with respect to safety_budget) budget 
             test_rel_budget:float=1., # test relative budget 
-            unsafe_reward:float=0,
-            use_reward_shaping:bool=False, # ablation (default True originally but negative rewards observed in IMP)
+            unsafe_reward:float=-200., #environment-specific (IMP)
+            use_reward_shaping:bool=True, # ablation 
             use_state_augmentation:bool=True, # ablation
             **kwargs
         ):
