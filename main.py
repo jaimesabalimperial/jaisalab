@@ -1,41 +1,255 @@
-from torch import seed
-from jaisalab.experiments.backlog import (trpo_backlog, cpo_backlog, 
-                                          saute_trpo_backlog, dcpo_backlog)
-from jaisalab.evaluation import RLPlotter
+#misc
+import torch
+from dowel import logger, StdOutput
 
-def test_trpo_backlog(seed):
-    trpo_backlog(seed=seed)
+#jaisalab
+from jaisalab.utils.env import env_setup
+from jaisalab.envs.inventory_management import InvManagementBacklogEnv, SauteInvManagementBacklogEnv
+from jaisalab.algos.cpo import CPO
+from jaisalab.algos.trpo_safe import SafetyTRPO
+from jaisalab.safety_constraints import SoftInventoryConstraint
+from jaisalab.sampler.sampler_safe import SamplerSafe
+from jaisalab.value_functions import GaussianValueFunction, QRValueFunction
+from jaisalab.policies import GaussianPolicy
 
-def test_cpo_backlog(seed):
-    cpo_backlog(seed=seed)
+#garage
+from garage import Trainer, wrap_experiment
+from garage.experiment.deterministic import set_seed
 
-def test_saute_trpo_backlog(seed):
-    saute_trpo_backlog(seed=seed)
+SEED = 4
 
-def test_dcpo_backlog(seed):
-    dcpo_backlog(seed=seed)
+@wrap_experiment(log_dir=f'data{SEED}/cpo_backlog')
+def cpo_backlog(ctxt, seed=1, n_epochs=800):
+    """Train CPO with InvManagementBacklogEnv environment.
 
-def plot_experiment():
-    #fdir = ['trpo_backlog_1', 'cpo_backlog_1', 'saute_trpo_backlog_1', 'dcpo_backlog_1']
-    #plotter = RLPlotter()
-    #plotter.plot_returns()
-    #plotter.plot_constraint_vals()
-    #plotter.plot_costs()
-    #plotter.plot_gaussian_progression(num_points=400)
-    #plotter.plot_final_distribution()
-    #plotter.plot_quantiles_progression(interval=10)
-    pass
+    Args:
+        ctxt (garage.experiment.ExperimentContext): The experiment
+            configuration used by Trainer to create the snapshotter.
+        seed (int): Used to seed the random number generator to produce
+            determinism.
 
-def train_seed(seed):
-    test_trpo_backlog(seed=seed)
-    test_cpo_backlog(seed=seed)
-    test_saute_trpo_backlog(seed=seed)
-    test_dcpo_backlog(seed=seed)
+    """
+    # log to stdout
+    logger.add_output(StdOutput())
+
+    #set seed and define environment
+    set_seed(seed)
+    env = InvManagementBacklogEnv()
+    env = env_setup(env) #set up environment
+
+    trainer = Trainer(ctxt)
+
+    policy = GaussianPolicy(env.spec,
+                               hidden_sizes=[64, 64],
+                               hidden_nonlinearity=torch.tanh,
+                               output_nonlinearity=None)
+
+    value_function = GaussianValueFunction(env_spec=env.spec,
+                                              hidden_sizes=(64, 64),
+                                              hidden_nonlinearity=torch.tanh,
+                                              output_nonlinearity=None)
+
+    safety_baseline = GaussianValueFunction(env_spec=env.spec,
+                                            hidden_sizes=(64, 64),                                        
+                                            hidden_nonlinearity=torch.tanh,
+                                            output_nonlinearity=None)
+
+    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
+
+    sampler = SamplerSafe(agents=policy,
+                          envs=env, 
+                          max_episode_length=env.spec.max_episode_length, 
+                          worker_args={'safety_constraint': safety_constraint})
+
+    algo = CPO(env_spec=env.spec,
+               policy=policy,
+               value_function=value_function,
+               safety_constraint=safety_constraint,
+               sampler=sampler,
+               discount=0.99,
+               center_adv=False)
+
+    trainer.setup(algo, env)
+    trainer.train(n_epochs=n_epochs, batch_size=1024)
+
+@wrap_experiment(log_dir=f'data{SEED}/trpo_backlog')
+def trpo_backlog(ctxt, seed=1, n_epochs=800):
+    """Train TRPO with IMP environment.
+
+    Args:
+        ctxt (garage.experiment.ExperimentContext): The experiment
+            configuration used by Trainer to create the snapshotter.
+        seed (int): Used to seed the random number generator to produce
+            determinism.
+
+    """
+    # log to stdout
+    logger.add_output(StdOutput())
+
+    #set seed and define environment
+    set_seed(seed)
+    env = InvManagementBacklogEnv()
+    env = env_setup(env) #set up environment
+
+    trainer = Trainer(ctxt)
+
+    policy = GaussianPolicy(env.spec,
+                               hidden_sizes=[64, 64],
+                               hidden_nonlinearity=torch.tanh,
+                               output_nonlinearity=None)
+
+    value_function = GaussianValueFunction(env_spec=env.spec,
+                                              hidden_sizes=(64, 64),
+                                              hidden_nonlinearity=torch.tanh,
+                                              output_nonlinearity=None)
+    
+    safety_baseline = GaussianValueFunction(env_spec=env.spec,
+                                        hidden_sizes=(64, 64),
+                                        hidden_nonlinearity=torch.tanh,
+                                        output_nonlinearity=None)
+
+    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
+
+    sampler = SamplerSafe(agents=policy,
+                          envs=env, 
+                          max_episode_length=env.spec.max_episode_length, 
+                          worker_args={'safety_constraint': safety_constraint})
+
+    algo = SafetyTRPO(env_spec=env.spec,
+                      policy=policy,
+                      value_function=value_function,
+                      sampler=sampler,
+                      safety_constraint=safety_constraint,
+                      discount=0.99,
+                      center_adv=False)
+
+    trainer.setup(algo, env)
+    trainer.train(n_epochs=n_epochs, batch_size=1024)
+
+@wrap_experiment(log_dir=f'data{SEED}/saute_trpo_backlog')
+def saute_trpo_backlog(ctxt, seed=1, n_epochs=800):
+    """Train TRPO with InvertedDoublePendulum-v2 environment.
+
+    Args:
+        ctxt (garage.experiment.ExperimentContext): The experiment
+            configuration used by Trainer to create the snapshotter.
+        seed (int): Used to seed the random number generator to produce
+            determinism.
+
+    """
+    # log to stdout
+    logger.add_output(StdOutput())
+
+    #set seed and define environment
+    set_seed(seed)
+    env = SauteInvManagementBacklogEnv()
+    env = env_setup(env) #set up environment
+
+    trainer = Trainer(ctxt)
+
+    policy = GaussianPolicy(env.spec,
+                               hidden_sizes=[64, 64],
+                               hidden_nonlinearity=torch.tanh,
+                               output_nonlinearity=None)
+
+    value_function = GaussianValueFunction(env_spec=env.spec,
+                                            hidden_sizes=(64, 64),
+                                            hidden_nonlinearity=torch.tanh,
+                                            output_nonlinearity=None)
+    
+    safety_baseline = GaussianValueFunction(env_spec=env.spec,
+                                        hidden_sizes=(64, 64),
+                                        hidden_nonlinearity=torch.tanh,
+                                        output_nonlinearity=None)
+
+    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
+
+    sampler = SamplerSafe(agents=policy,
+                          envs=env, 
+                          max_episode_length=env.spec.max_episode_length, 
+                          worker_args={'safety_constraint': safety_constraint})
+
+    algo = SafetyTRPO(env_spec=env.spec,
+                      policy=policy,
+                      value_function=value_function,
+                      sampler=sampler,
+                      safety_constraint=safety_constraint,
+                      discount=0.99,
+                      center_adv=False, 
+                      is_saute=True)
+
+    trainer.setup(algo, env)
+    trainer.train(n_epochs=n_epochs, batch_size=1024)
+
+
+@wrap_experiment(log_dir=f'data{SEED}/dcpo_backlog')
+def dcpo_backlog(ctxt, seed=1, n_epochs=800):
+    """Train CPO with InvManagementBacklogEnv environment.
+
+    Args:
+        ctxt (garage.experiment.ExperimentContext): The experiment
+            configuration used by Trainer to create the snapshotter.
+        seed (int): Used to seed the random number generator to produce
+            determinism.
+
+    """
+    # log to stdout
+    logger.add_output(StdOutput())
+
+    #set seed and define environment
+    set_seed(seed)
+    env = InvManagementBacklogEnv()
+    env = env_setup(env) #set up environment
+
+    trainer = Trainer(ctxt)
+
+    policy = GaussianPolicy(env.spec,
+                            hidden_sizes=[64, 64],
+                            hidden_nonlinearity=torch.tanh,
+                            output_nonlinearity=None)
+
+    value_function = QRValueFunction(env_spec=env.spec,
+                                     N=102,
+                                     hidden_sizes=(64, 64),
+                                     hidden_nonlinearity=torch.tanh,
+                                     output_nonlinearity=None)
+
+    safety_baseline = QRValueFunction(env_spec=env.spec,
+                                      Vmin=0, 
+                                      Vmax=60.,
+                                      N=102, 
+                                      hidden_sizes=(64, 64),                                        
+                                      hidden_nonlinearity=torch.tanh,
+                                      output_nonlinearity=None)
+
+    safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
+
+    sampler = SamplerSafe(agents=policy,
+                          envs=env, 
+                          max_episode_length=env.spec.max_episode_length, 
+                          worker_args={'safety_constraint': safety_constraint})
+
+    algo = CPO(env_spec=env.spec,
+               policy=policy,
+               value_function=value_function,
+               safety_constraint=safety_constraint,
+               sampler=sampler,
+               discount=0.99,
+               center_adv=False, 
+               dist_penalty=False) #running ablation
+
+    trainer.setup(algo, env)
+    trainer.train(n_epochs=n_epochs, batch_size=1024)
+
+def train_seed():
+    #trpo_backlog(seed=SEED)
+    cpo_backlog(seed=SEED)
+    saute_trpo_backlog(seed=SEED)
+    dcpo_backlog(seed=SEED)
 
 if __name__ == '__main__':
-    seed_val = 1
-    train_seed(seed=seed_val)
-    #test_trpo_backlog(seed=seed_val)
-    #test_cpo_backlog(seed=seed_val)
-    #test_saute_trpo_backlog(seed=seed_val)
-    #test_dcpo_backlog(seed=seed_val)
+    train_seed()
+    #trpo_backlog(seed=SEED)
+    #cpo_backlog(seed=SEED)
+    #saute_trpo_backlog(seed=SEED)
+    #dcpo_backlog(seed=SEED)

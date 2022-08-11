@@ -3,7 +3,9 @@ import os
 import random
 import numpy as np 
 import matplotlib.pyplot as plt 
+from matplotlib.lines import Line2D
 import csv
+import inspect
 
 #jaisalab
 from jaisalab.utils.eval import (gather_replications, get_data_dict, 
@@ -214,11 +216,16 @@ class BasePlotter():
         
         return quantile_probs, quantile_vals
 
-    def plot(self, x_array, y_array, ylabel, std=None, title=None, use_legend=True):
+    def plot(self, x_array, y_array, ylabel, std=None, title=None, use_legend=True,
+             hline=None, **kwargs):
         """Custom plotting function that allows for multiple experiments to be 
         plotted on the same figure if specified in the fdir argument of the constructor
         method."""
-        fig = plt.figure()
+        if 'fontsize' in kwargs.keys():
+            plt.rcParams.update({'font.size': kwargs['fontsize']})
+
+        fig_kwargs = {k:v for k,v in kwargs.items() if k in inspect.getargspec(plt.figure)[0]}
+        fig = plt.figure(**fig_kwargs)
         plt.grid()
         if isinstance(self.fdir, (list, tuple)): #multiple experiments to plot
             min_episode_num = min([len(episodes) for episodes in x_array])
@@ -234,6 +241,12 @@ class BasePlotter():
             if std is not None: 
                 plt.fill_between(x_array, y_array-std, y_array+std, 
                                  color=self._plot_color, alpha=0.4)
+        #horizontal line if specified
+        if hline is not None: 
+            hline_label = kwargs['hline_label']
+            plt.axhline(hline, xmin=0, xmax=len(x_array),
+                        linestyle='dashed', color='black', 
+                        label=hline_label)
 
         plt.xlabel('Episode')
         plt.ylabel(ylabel)
@@ -242,6 +255,11 @@ class BasePlotter():
             plt.title(title)    
         if use_legend:
             plt.legend(loc='best')
+        else: 
+            if hline is not None: 
+                hline_handle = Line2D([0], [0], linestyle='dashed', color='black')
+                plt.legend([hline_handle], [hline_label], loc='best')
+                
     
     def plot_returns(self):
         """Plot progression of returns throughout epochs."""
