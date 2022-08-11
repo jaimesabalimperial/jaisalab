@@ -74,7 +74,9 @@ class CPO(PolicyGradientSafe):
                  use_softplus_entropy=False,
                  stop_entropy_gradient=False,
                  entropy_method='no_entropy', 
-                 grad_norm=False):
+                 grad_norm=False, 
+                 tolerance = 0.05, 
+                 dist_penalty=True): #ablation
 
         #CPO uses ConjugateConstraintOptimizer
         if policy_optimizer is None:
@@ -114,10 +116,21 @@ class CPO(PolicyGradientSafe):
         
         self.max_quad_constraint = step_size 
         self.max_lin_constraint = self.safety_constraint.safety_step
+        self.prob_tolerance = tolerance
         
+    def reshape_constraint(self, obs):
+        with torch.no_grad():
+            mean_quantile_vals = self._safety_baseline(obs).mean(dim=0)
+
+        z_dist = self._safety_baseline.V_range
+        max_constraint_idx = (torch.abs(z_dist - self.max_lin_constraint)).argmin()
+        surplus_prob = torch.sum(mean_quantile_vals[max_constraint_idx:]) - self.prob_tolerance
+
+        new_constraint = self.constraint_value * (1 + surplus_prob)
+        return new_constraint
 
     def _compute_objective(self, advantages, obs, actions, rewards):
-        r"""TRPO Compute objective value. 
+        r"""Trust region methods surrogate objective. 
 
         Args:
             advantages (torch.Tensor): Advantage value at each step
@@ -178,6 +191,10 @@ class CPO(PolicyGradientSafe):
         safety_loss = -self._compute_loss_with_adv(obs, actions, safety_rewards, safety_advantages)
         safety_loss_grad = self._get_grad(safety_loss)
         safety_loss_grad = safety_loss_grad/torch.norm(safety_loss_grad) 
+
+        #distributional penalty for dcpo
+        if self.dist_penalty: 
+            self.constraint_value = self.reshape_constraint(obs)
 
         #define linear (safety) and quadratic (kl) constraints
         lin_leq_constraint = (self.constraint_value, self.max_lin_constraint)         
