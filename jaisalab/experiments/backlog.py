@@ -239,7 +239,8 @@ def dcpo_backlog(ctxt, seed=1, n_epochs=800):
                safety_constraint=safety_constraint,
                sampler=sampler,
                discount=0.99,
-               center_adv=False)
+               center_adv=False, 
+               dist_penalty=False) #running ablation
 
     trainer.setup(algo, env)
     trainer.train(n_epochs=n_epochs, batch_size=1024)

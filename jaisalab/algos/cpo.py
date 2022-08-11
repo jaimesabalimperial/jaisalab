@@ -76,7 +76,8 @@ class CPO(PolicyGradientSafe):
                  entropy_method='no_entropy', 
                  grad_norm=False, 
                  tolerance = 0.05, 
-                 dist_penalty=True): #ablation
+                 penalty_coeff=2, 
+                 dist_penalty=False): #ablation for DCPO
 
         #CPO uses ConjugateConstraintOptimizer
         if policy_optimizer is None:
@@ -116,17 +117,28 @@ class CPO(PolicyGradientSafe):
         
         self.max_quad_constraint = step_size 
         self.max_lin_constraint = self.safety_constraint.safety_step
+        self.dist_penalty = dist_penalty
         self.prob_tolerance = tolerance
+        self.beta = penalty_coeff
         
     def reshape_constraint(self, obs):
+        """Reshape constraint value analogously to how the 
+        surrogate objective of TRPO is adjusted by an adaptive 
+        KL penalty coefficient in PPO."""
         with torch.no_grad():
             mean_quantile_vals = self._safety_baseline(obs).mean(dim=0)
 
         z_dist = self._safety_baseline.V_range
         max_constraint_idx = (torch.abs(z_dist - self.max_lin_constraint)).argmin()
-        surplus_prob = torch.sum(mean_quantile_vals[max_constraint_idx:]) - self.prob_tolerance
+        excess_prob = torch.sum(mean_quantile_vals[max_constraint_idx:]) 
 
-        new_constraint = self.constraint_value * (1 + surplus_prob)
+        #adapt penalty coefficient
+        if excess_prob > self.prob_tolerance * 1.25: 
+            self.beta *= 1.5
+        elif excess_prob < self.prob_tolerance / 1.25: 
+            self.beta /= 1.5
+
+        new_constraint = self.constraint_value * self.beta
         return new_constraint
 
     def _compute_objective(self, advantages, obs, actions, rewards):
