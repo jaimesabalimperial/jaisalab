@@ -153,7 +153,16 @@ class BasePlotter():
     
     
     def get_data_arrays(self, y_column, std_column=None):
-        """Retrieve data arrays in different ways depending on data structure."""
+        """Retrieve data arrays in different ways depending on data structure.
+        
+        Args: 
+            y_column (str): Key of metric to retrieve from data dictionary. 
+            std_column (str): Key of the standard deviation of the y_column 
+                metric to plot. 
+
+        Returns: 
+            tuple(list, array): Tuple containing array of x, y, and std values. 
+        """
         if isinstance(self.fdir, (list, tuple)):
             y_array = [data[y_column] for data in self.data.values()]
             x_array = [np.arange(0, len(y)) for y in y_array]
@@ -184,6 +193,8 @@ class BasePlotter():
                     return x_array, y_array
         
     def get_distribution_data(self):
+        """Retrieve data relevant to the distribution of values estimated
+        throughout training (mean and standard deviation)."""
         if isinstance(self.fdir, (list, tuple)):
             if len(self.fdir) > 1:
                 raise TypeError('Distribution progression can only be plotted for individual experiments.')
@@ -196,6 +207,22 @@ class BasePlotter():
         return mean_returns_array, std_returns_array
     
     def get_quantiles_data(self, Vmin, Vmax):
+        """Retrieve data concerning quantile distribution (should be plotted 
+        only for case where QRValueFunction is used for the value function/safety 
+        baseline.
+        
+        Args: 
+            Vmin (int, float): Minimum range of values in distribution (should 
+                be consistent with arguments for QRValueFunction). 
+            Vmax (int, float): Maximum range of values in distribution (should 
+                be consistent with arguments for QRValueFunction). 
+        
+        Returns: 
+            quantile_probs (list): List containing quantile probabilities at 
+                every training iteration. 
+            quantile_vals (list): List containing positions of quantile probability 
+                bins. 
+        """
         if isinstance(self.fdir, (list, tuple)):
             if len(self.fdir) > 1:
                 raise TypeError('Distribution progression can only be plotted for individual experiments.')
@@ -220,7 +247,24 @@ class BasePlotter():
              hline=None, **kwargs):
         """Custom plotting function that allows for multiple experiments to be 
         plotted on the same figure if specified in the fdir argument of the constructor
-        method."""
+        method.
+
+        Extra arguments may be plotted that relate to the figure (global fontsize may 
+        also be inputted).
+
+        Args: 
+            x_array (list): List containing the domain of the y_array, which is by default
+                a list of integers corresponding to the number of training iterations. 
+            y_array (list): List containing data for the metric to be plotted for all 
+                experiments specified. 
+            ylabel (str): Label of y-axis. 
+            std (list): List containing standard deviation of y_array at every training 
+                iteration over a number of seeds specified by len(self.data_dirs); Default=None. 
+            title (str): Title of figure (Default=None). 
+            use_legend (bool): Wether to plot a legend in the figure. 
+            hline (float): y-coordinate of a horizontal line to be plotted in the figure 
+                (Default=None).
+        """
         if 'fontsize' in kwargs.keys():
             plt.rcParams.update({'font.size': kwargs['fontsize']})
 
