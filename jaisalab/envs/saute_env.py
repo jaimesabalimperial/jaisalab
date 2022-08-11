@@ -16,7 +16,7 @@ def saute_env(cls):
     class SauteEnv(Env):
         def __init__(
             self,
-            safety_budget:float=25., #environment-specific (here we specify a budget for IMP environment)
+            safety_budget:float=15., #environment-specific (here we specify a budget for IMP environment)
             saute_discount_factor:float=1.0,
             max_ep_len:int=200,
             min_rel_budget:float=1., # minimum relative (with respect to safety_budget) budget
