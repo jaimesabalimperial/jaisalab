@@ -16,14 +16,14 @@ def saute_env(cls):
     class SauteEnv(Env):
         def __init__(
             self,
-            safety_budget:float=1.0, 
+            safety_budget:float=25., #environment-specific (here we specify a budget for IMP environment)
             saute_discount_factor:float=1.0,
             max_ep_len:int=200,
             min_rel_budget:float=1., # minimum relative (with respect to safety_budget) budget
             max_rel_budget:float=1., # maximum relative (with respect to safety_budget) budget 
             test_rel_budget:float=1., # test relative budget 
             unsafe_reward:float=0,
-            use_reward_shaping:bool=True, # ablation
+            use_reward_shaping:bool=False, # ablation (default True originally but negative rewards observed in IMP)
             use_state_augmentation:bool=True, # ablation
             **kwargs
         ):
@@ -98,7 +98,7 @@ def saute_env(cls):
 
         def step(self, action):
             """ Step through the environment. """
-            next_obs, reward, done, info = self.wrap.step(action)     
+            next_obs, reward, done, info = self.wrap.step(action)   
             next_safety_state = self.safety_step(info['cost'])
             info['true_reward'] = reward         
             info['next_safety_state'] = next_safety_state
