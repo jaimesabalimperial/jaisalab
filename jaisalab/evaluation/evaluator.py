@@ -47,10 +47,6 @@ class Evaluator(object):
 
         self.snapshotter = Snapshotter()
 
-        #remove empty directory that Snapshotter creates by default
-        if len(os.listdir('data/local/experiment')) == 0:
-            shutil.rmtree('data/')
-
         #examine data from snapshot of experiment
         self.data = self.snapshotter.load(snapshot_dir)
         self._policy = self.data['algo'].policy

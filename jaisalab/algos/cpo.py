@@ -151,7 +151,7 @@ class CPO(PolicyGradientSafe):
         with torch.no_grad():
             mean_quantile_probs = self.get_quantiles(self._safety_baseline, self.initial_state)
 
-        excess_prob = sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance
+        excess_prob = max(sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance, 0)
 
         if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + self.beta)): 
             #calculate difference between constraint value and limit
