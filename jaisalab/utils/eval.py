@@ -102,7 +102,7 @@ def get_labels_from_dirs(dirs, algorithm_names):
     exp_labels = []
     for exp_name in split_exp_names:
         if exp_name[1] in algorithm_names:
-            exp_labels.append('_'.join(exp_name[:2]))
+            exp_labels.append(' '.join(exp_name[:2]))
         else: 
             exp_labels.append(exp_name[0])
     return exp_labels

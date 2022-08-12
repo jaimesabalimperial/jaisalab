@@ -160,6 +160,11 @@ class RLPlotter(BasePlotter):
         self.savefig(flag=9, animator=animator)
     
     def plot_evaluation(self, seed_dir):
+        """Plot the evaluation results in terms of the average normalised 
+        returns and costs throughout the test epochs. The normalisation of 
+        the costs is done in terms of the maximum allowed cost defined in the 
+        safety constraint class inputted into the algorithm. The normalisation 
+        of the returns is done in terms of the """
         seed_evaluator = SeedEvaluator(seed_dir)
         
 

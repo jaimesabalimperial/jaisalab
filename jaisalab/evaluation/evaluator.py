@@ -243,9 +243,10 @@ class SeedEvaluator():
         seed directories."""
         #evaluate all experiments
         seed_normalised_costs = defaultdict(dict)
-        for seed_tag, evaluators in self._evaluators.items():
-            for evaluator in evaluators:   
-                exp_name = evaluator.snapshot_dir.split('/')[-1]
+        for seed_tag, eval_dicts in self._evaluators.items():
+            for eval in eval_dicts:   
+                evaluator = eval['evaluator']
+                exp_name = eval['experiment']
                 seed_normalised_costs[seed_tag][exp_name] = evaluator.mean_normalised_cost()
         
         #transpose the data
