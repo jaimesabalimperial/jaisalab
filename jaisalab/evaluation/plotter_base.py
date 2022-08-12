@@ -17,7 +17,7 @@ class BasePlotter():
                  dtype='np', savefig=True, use_legend=True, **kwargs):
 
         self.data_dir = data_dir
-        self.algorithm_names = ['cpo', 'trpo']
+        self.algorithm_names = ['cpo', 'trpo', 'ablation', 'dcpo']
         self._dtype = dtype
 
         #initialise plotter and gather data from directory/ies

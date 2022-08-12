@@ -132,16 +132,28 @@ class CPO(PolicyGradientSafe):
             self.max_constraint_idx = (torch.abs(z_dist - self.max_lin_constraint)).argmin()
         
     def reshape_constraint(self):
-        """Reshape constraint value analogously to how the 
-        surrogate objective of TRPO is adjusted by an adaptive 
-        KL penalty coefficient in PPO."""
+        """Reshape constraint value (J_{C}) and its target (d) (i.e. maximum allowed costs) such
+        that: 
+
+            \tilde{J}_{C} = J{C} * (1 + \rho) + \beta * (J_{C} - d)
+
+            \tilde{d} = d * (\tilde{J}_{C} / J{C})
+        
+        where \rho is the surplus probability that J_{C} > d as per the estimated quantile 
+        distribution of costs (using QRValueFunction) and \beta is a weight coefficient assigned 
+        to the distance between J_{C} and its target d. 
+        
+        To ensure that dual problem constraint inequality holds (i.e. J_{C} - d < 0) we must 
+        condition the reshaping of J_{C} and d such that it is only done if  
+        J_{C} / d < \beta / (1 + \beta).
+        """
         #use initial state prediction of quantiles to retrieve baseline of constraint value
         with torch.no_grad():
             mean_quantile_probs = self.get_quantiles(self._safety_baseline, self.initial_state)
 
         excess_prob = sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance
 
-        if self.constraint_value - self.max_lin_constraint > 0: #if constraint is violated reshape
+        if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + self.beta)): 
             #calculate difference between constraint value and limit
             delta =  self.constraint_value - self.max_lin_constraint        
             constraint = self.constraint_value * (1 + excess_prob) + self.beta * delta
