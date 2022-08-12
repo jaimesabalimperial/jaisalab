@@ -205,7 +205,7 @@ class ConjugateConstraintOptimizer(Optimizer):
             # take a step on natural safety gradient
             flat_descent_step = torch.sqrt(delta / (s + eps)) * w
 
-        return flat_descent_step
+        return flat_descent_step, optim_case, c
 
     def step(self, f_loss, f_safety, lin_leq_constraint, 
              quad_leq_constraint, loss_grad, safety_loss_grad, 
@@ -241,12 +241,13 @@ class ConjugateConstraintOptimizer(Optimizer):
         step_dir = _conjugate_gradient(f_Ax, loss_grad, self._cg_iters)
 
         # Calculate optimium step direction and replace nan with 0.
-        flat_descent_step = self._get_optimal_step_dir(f_Ax, params, step_dir, 
+        flat_descent_step, optim_case, c = self._get_optimal_step_dir(f_Ax, params, step_dir, 
                                                        safety_loss_grad, constraint_term_2)
 
         # Update parameters using backtracking line search
         self._backtracking_line_search(params, flat_descent_step, f_loss=f_loss,
-                                       f_safety=f_safety, f_constraint=constraint_term_1)
+                                       f_safety=f_safety, f_constraint=constraint_term_1,
+                                       optim_case=optim_case, c=c)
 
     @property
     def state(self):
@@ -287,7 +288,7 @@ class ConjugateConstraintOptimizer(Optimizer):
         self.param_groups = state['param_groups']
 
     def _backtracking_line_search(self, params, descent_step, f_loss,
-                                  f_safety, f_constraint):
+                                  f_safety, f_constraint, optim_case, c):
         prev_params = [p.clone() for p in params]
         ratio_list = self._backtrack_ratio**np.arange(self._max_backtracks)
         loss_before = f_loss()
@@ -313,22 +314,23 @@ class ConjugateConstraintOptimizer(Optimizer):
             cost_loss = f_safety()
             constraint_val = f_constraint()
 
-            if (loss < loss_before and cost_loss < cost_loss_before
-                and constraint_val <= self._max_constraint_value):
+            if ((loss <= loss_before if optim_case > 1 else True) and 
+               (cost_loss - cost_loss_before <= max(-c,0)) and
+               (constraint_val <= self._max_constraint_value)):
                 break
 
         if ((torch.isnan(loss) or torch.isnan(constraint_val)
-             or loss >= loss_before
+             or (loss >= loss_before if optim_case > 1 else False)
              or constraint_val >= self._max_constraint_value)
              or torch.isnan(cost_loss)
-             or cost_loss >= cost_loss_before
+             or (cost_loss - cost_loss_before >= max(-c,0))
              and not self._accept_violation):
 
             logger.log('Line search condition violated. Rejecting the step!')
 
             if torch.isnan(cost_loss):
                 logger.log('Violated because safety loss is NaN')      
-            if cost_loss >= cost_loss_before:
+            if cost_loss - cost_loss_before >= max(-c,0):
                 logger.log('Violated because safety loss not improving')                  
             if torch.isnan(loss):
                 logger.log('Violated because loss is NaN')

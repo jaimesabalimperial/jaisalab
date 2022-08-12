@@ -5,6 +5,7 @@ import torch
 from jaisalab.optimizers import ConjugateConstraintOptimizer
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.algos import PolicyGradientSafe
+from jaisalab.value_functions import QRValueFunction
 
 #garage
 from garage.torch.optimizers import OptimizerWrapper
@@ -75,8 +76,10 @@ class CPO(PolicyGradientSafe):
                  stop_entropy_gradient=False,
                  entropy_method='no_entropy', 
                  grad_norm=False, 
-                 tolerance = 0.05, 
-                 penalty_coeff=2, 
+                 tolerance=0.05, 
+                 max_beta=4, 
+                 min_beta=0.5,
+                 init_beta=2, 
                  dist_penalty=False): #ablation for DCPO
 
         #CPO uses ConjugateConstraintOptimizer
@@ -117,29 +120,38 @@ class CPO(PolicyGradientSafe):
         
         self.max_quad_constraint = step_size 
         self.max_lin_constraint = self.safety_constraint.safety_step
+        self.c = self.safety_constraint.safety_step #moving target for dcpo
         self.dist_penalty = dist_penalty
-        self.prob_tolerance = tolerance
-        self.beta = penalty_coeff
+        self.tolerance = tolerance
+        self._max_beta = max_beta 
+        self._min_beta = min_beta 
+        self.beta = init_beta
+        self._prev_constraint = None
+        if isinstance(self._safety_baseline, QRValueFunction):
+            z_dist = self._safety_baseline.V_range
+            self.max_constraint_idx = (torch.abs(z_dist - self.max_lin_constraint)).argmin()
         
-    def reshape_constraint(self, obs):
+    def reshape_constraint(self):
         """Reshape constraint value analogously to how the 
         surrogate objective of TRPO is adjusted by an adaptive 
         KL penalty coefficient in PPO."""
+        #use initial state prediction of quantiles to retrieve baseline of constraint value
         with torch.no_grad():
-            mean_quantile_vals = self._safety_baseline(obs).mean(dim=0)
+            mean_quantile_probs = self.get_quantiles(self._safety_baseline, self.initial_state)
 
-        z_dist = self._safety_baseline.V_range
-        max_constraint_idx = (torch.abs(z_dist - self.max_lin_constraint)).argmin()
-        excess_prob = torch.sum(mean_quantile_vals[max_constraint_idx:]) 
+        excess_prob = sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance
 
-        #adapt penalty coefficient
-        if excess_prob > self.prob_tolerance * 1.25: 
-            self.beta *= 1.5
-        elif excess_prob < self.prob_tolerance / 1.25: 
-            self.beta /= 1.5
+        if self.constraint_value - self.max_lin_constraint > 0: #if constraint is violated reshape
+            #calculate difference between constraint value and limit
+            delta =  self.constraint_value - self.max_lin_constraint        
+            constraint = self.constraint_value * (1 + excess_prob) + self.beta * delta
+            #update moving target for constraint limit
+            self.c = self.max_lin_constraint * (constraint / self.constraint_value)
+        else: #solve dual problem without reshaping
+            self.c = self.max_lin_constraint
+            return self.constraint_value
 
-        new_constraint = self.constraint_value * self.beta
-        return new_constraint
+        return constraint
 
     def _compute_objective(self, advantages, obs, actions, rewards):
         r"""Trust region methods surrogate objective. 
@@ -206,10 +218,10 @@ class CPO(PolicyGradientSafe):
 
         #distributional penalty for dcpo
         if self.dist_penalty: 
-            self.constraint_value = self.reshape_constraint(obs)
+            self.constraint_value = self.reshape_constraint()
 
         #define linear (safety) and quadratic (kl) constraints
-        lin_leq_constraint = (self.constraint_value, self.max_lin_constraint)         
+        lin_leq_constraint = (self.constraint_value, self.c)         
         
         quad_leq_constraint = (lambda: self._compute_kl_constraint(obs), 
                                 self.max_quad_constraint)

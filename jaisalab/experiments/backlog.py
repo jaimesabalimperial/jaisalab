@@ -240,7 +240,7 @@ def dcpo_backlog(ctxt, seed=1, n_epochs=800):
                sampler=sampler,
                discount=0.99,
                center_adv=False, 
-               dist_penalty=False) #running ablation
+               dist_penalty=True) #running experiment
 
     trainer.setup(algo, env)
     trainer.train(n_epochs=n_epochs, batch_size=1024)
