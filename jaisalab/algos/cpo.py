@@ -145,7 +145,7 @@ class CPO(PolicyGradientSafe):
         
         To ensure that dual problem constraint inequality holds (i.e. J_{C} - d < 0) we must 
         condition the reshaping of J_{C} and d such that it is only done if  
-        J_{C} / d < \beta / (1 + \beta).
+        J_{C} / d < \beta / (1 + \beta) (assuming that \rho = 0 when J_{C} - d < 0). 
         """
         #use initial state prediction of quantiles to retrieve baseline of constraint value
         with torch.no_grad():
@@ -157,6 +157,7 @@ class CPO(PolicyGradientSafe):
             #calculate difference between constraint value and limit
             delta =  self.constraint_value - self.max_lin_constraint        
             constraint = self.constraint_value * (1 + excess_prob) + self.beta * delta
+            
             #update moving target for constraint limit
             self.c = self.max_lin_constraint * (constraint / self.constraint_value)
         else: #solve dual problem without reshaping

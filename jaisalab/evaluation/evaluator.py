@@ -16,7 +16,7 @@ from garage.experiment.deterministic import set_seed
 from jaisalab.sampler.sampler_safe import SamplerSafe
 from jaisalab.algos.policy_gradient_safe import PolicyGradientSafe
 from jaisalab.utils.agent import gather_performance
-from jaisalab.utils.eval import get_data_dict, get_snapshot_dirs
+from jaisalab.utils.eval import get_data_dict, get_snapshot_dirs, get_labels_from_dirs
 
 class Evaluator(object):
     """Class used to evaluate trained RL policies. Makes 
@@ -203,25 +203,24 @@ class SeedEvaluator():
     def __init__(self, seed_dir, override=False) -> None:
         self.seed_dir = seed_dir
         self.seed_data_dirs = get_snapshot_dirs(seed_dir)
+        self.experiment_tags =  ['cpo', 'trpo', 'ablation', 'dcpo']
 
         self._evaluators = defaultdict(list)
-        self._override_warnings = []
-        self._rollout_necessary = []
+        self._override_warnings = defaultdict(list)
+        self._rollout_necessary = defaultdict(list)
         for seed_dir in self.seed_data_dirs: 
             seed_tag = seed_dir[-1]
             snapshots = get_snapshot_dirs(seed_dir)
-            for snapshot in snapshots:
-                self._evaluators[seed_tag].append(Evaluator(snapshot), override=override)
+            exp_fdirs = [snapshot.split('/')[-1] for snapshot in snapshots]
+            exp_names = get_labels_from_dirs(exp_fdirs, self.experiment_tags)
+            eval_dict = {}
+            for exp_name, snapshot in zip(exp_names, snapshots):
                 eval_log_file = os.path.join(snapshot, 'evaluation.csv')
                 eval_exists = os.path.exists(eval_log_file)
-                if eval_exists:
-                    self._rollout_necessary.append(False)
-                    if override == False:
-                        self._override_warnings.append(True)
-                    else: 
-                        self._override_warnings.append(False)
-                else: 
-                    self._rollout_necessary.append(True)
+                eval_dict['evaluator'] = Evaluator(snapshot, override=override)
+                eval_dict['rollout_necessary'] = not eval_exists
+                eval_dict['experiment'] = exp_name
+                self._evaluators[seed_tag].append(eval_dict)
 
     def rollout(self, n_epochs):
         """Rollout test data for all the trained policies in 

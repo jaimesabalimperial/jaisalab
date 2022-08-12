@@ -5,6 +5,7 @@ import matplotlib.animation as ani
 
 #jaisalab
 from jaisalab.evaluation.plotter_base import BasePlotter
+from jaisalab.evaluation.evaluator import SeedEvaluator
 
 class RLPlotter(BasePlotter):
     """Plotting functionalities for evaluation of constrained RL 
@@ -158,9 +159,9 @@ class RLPlotter(BasePlotter):
         animator = ani.FuncAnimation(fig, dist_progress, interval=time_interval, save_count=save_count)
         self.savefig(flag=9, animator=animator)
     
-
-    def plot_evaluation(self, test_data):
-        pass
+    def plot_evaluation(self, seed_dir):
+        seed_evaluator = SeedEvaluator(seed_dir)
+        
 
     
     
