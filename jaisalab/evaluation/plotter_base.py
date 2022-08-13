@@ -267,12 +267,16 @@ class BasePlotter():
         """
         if 'fontsize' in kwargs.keys():
             plt.rcParams.update({'font.size': kwargs['fontsize']})
-        if 'custom_labels' in kwargs.keys(): #allow for custom labels to be inputted
-            labels = kwargs['custom_labels']
-            if len(labels) != len(self._exp_labels):
-                raise IndexError('Number of labels must match number of experiments.')
-        else: 
-            labels = self._exp_labels
+        
+        #can't add custom labels to case where there is only one experiment 
+        # (doesn't really make sense to do so)
+        if isinstance(self.fdir, (list, tuple)):
+            if 'custom_labels' in kwargs.keys(): #allow for custom labels to be inputted
+                labels = kwargs['custom_labels']
+                if len(labels) != len(self._exp_labels):
+                    raise IndexError('Number of labels must match number of experiments.')
+            else: 
+                labels = self._exp_labels
 
         #handle different cases where single/multiple experiments are inputted
         fig_kwargs = {k:v for k,v in kwargs.items() if k in inspect.getargspec(plt.figure)[0]}
