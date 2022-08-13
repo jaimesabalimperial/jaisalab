@@ -12,15 +12,13 @@ Author: Jaime Sabal Bermúdez
 
 import warnings
 
-from dowel import logger, tabular
+from dowel import logger
 import numpy as np
 import torch
 from torch.optim import Optimizer
 
 from garage.np import unflatten_tensors
 from garage.torch.optimizers.conjugate_gradient_optimizer import _build_hessian_vector_product, _conjugate_gradient
-from jaisalab.value_functions.modules import *
-from jaisalab.utils.math import *
 
 
 class ConjugateConstraintOptimizer(Optimizer):

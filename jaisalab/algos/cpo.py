@@ -77,9 +77,7 @@ class CPO(PolicyGradientSafe):
                  entropy_method='no_entropy', 
                  grad_norm=False, 
                  tolerance=0.05, 
-                 max_beta=4, 
-                 min_beta=0.5,
-                 init_beta=2, 
+                 beta=2, 
                  dist_penalty=False): #ablation for DCPO
 
         #CPO uses ConjugateConstraintOptimizer
@@ -123,40 +121,45 @@ class CPO(PolicyGradientSafe):
         self.c = self.safety_constraint.safety_step #moving target for dcpo
         self.dist_penalty = dist_penalty
         self.tolerance = tolerance
-        self._max_beta = max_beta 
-        self._min_beta = min_beta 
-        self.beta = init_beta
+        self.beta = beta
         self._prev_constraint = None
         if isinstance(self._safety_baseline, QRValueFunction):
             z_dist = self._safety_baseline.V_range
             self.max_constraint_idx = (torch.abs(z_dist - self.max_lin_constraint)).argmin()
         
     def reshape_constraint(self):
-        """Reshape constraint value (J_{C}) and its target (d) (i.e. maximum allowed costs) such
+        """Compute new constraint value $\tilde{J}_{C}$ and its target $d$ (i.e. maximum allowed 
+        $\tilde{J}_{C}$)such
         that: 
+
+        \begin{equation}
 
             \tilde{J}_{C} = J{C} * (1 + \rho) + \beta * (J_{C} - d)
 
             \tilde{d} = d * (\tilde{J}_{C} / J{C})
         
-        where \rho is the surplus probability that J_{C} > d as per the estimated quantile 
-        distribution of costs (using QRValueFunction) and \beta is a weight coefficient assigned 
+        \end{equation}
+
+        where $\rho$ is the surplus probability that J_{C} > d as per the estimated quantile 
+        distribution of costs (using QRValueFunction) and $\beta$ is a weight coefficient assigned 
         to the distance between J_{C} and its target d. 
         
-        To ensure that dual problem constraint inequality holds (i.e. J_{C} - d < 0) we must 
-        condition the reshaping of J_{C} and d such that it is only done if  
-        J_{C} / d < \beta / (1 + \beta) (assuming that \rho = 0 when J_{C} - d < 0). 
+        To ensure that dual problem constraint inequality holds (i.e. $\tilde{J}_{C} - \tilde{d} > 0 
+        \iff J_{C} - d > 0$) we must condition the reshaping of $J_{C}$ and $d$ such that it is 
+        only done if  J_{C} / d > \beta / (1 + \rho + \beta) (assuming that \rho > 0, \beta > 0). 
         """
         #use initial state prediction of quantiles to retrieve baseline of constraint value
         with torch.no_grad():
             mean_quantile_probs = self.get_quantiles(self._safety_baseline, self.initial_state)
 
-        excess_prob = max(sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance, 0)
+        #compute surplus probability of obtaining J_{C} > d as per safety baseline
+        surplus_prob = sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance
+        surplus_prob = max(surplus_prob, 0)
 
-        if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + excess_prob + self.beta)): 
+        if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + surplus_prob + self.beta)): 
             #calculate difference between constraint value and limit
             delta =  self.constraint_value - self.max_lin_constraint        
-            constraint = self.constraint_value * (1 + excess_prob) + self.beta * delta
+            constraint = self.constraint_value * (1 + surplus_prob) + self.beta * delta
             
             #update moving target for constraint limit
             self.c = self.max_lin_constraint * (constraint / self.constraint_value)

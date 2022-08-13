@@ -225,38 +225,51 @@ class SeedEvaluator():
         Args:  
             n_epochs (int): Number of batches of episodes to sample.
         """
-        for evaluators in self._evaluators.values():
-            for evaluator in evaluators:
+        for seed_tag, eval_dicts in self._evaluators.items():
+            for eval in eval_dicts:
+                evaluator = eval['evaluator']
+                exp_name = eval['experiment']
+                logger.log(f'Running evaluation for seed#{seed_tag} / {exp_name}')
                 try:
                     evaluator.rollout(n_epochs)
                 except FileExistsError:
                     logger.log(f'Evaluation already exists in {evaluator.snapshot_dir}, moving on...')
                     continue
     
-    def get_cost_eval(self):
-        """Get the normalised cost mean and standard deviation 
+    def get_evaluation(self, eval_tag):
+        """Get the normalised cost/return mean and standard deviation 
         over the different seeds for all the experiments in the 
-        seed directories."""
+        seed directories.
+        
+        Args: 
+            eval_tag (str): Specified which metric to retrieve evaluation for. Must 
+                be either 'task' (i.e. return) or 'safety' (i.e. cost).
+        """
         #evaluate all experiments
-        seed_normalised_costs = defaultdict(dict)
+        seed_normalised_metric = defaultdict(dict)
         for seed_tag, eval_dicts in self._evaluators.items():
             for eval in eval_dicts:   
                 evaluator = eval['evaluator']
                 exp_name = eval['experiment']
-                seed_normalised_costs[seed_tag][exp_name] = evaluator.mean_normalised_cost()
-        
+                if eval_tag == 'task':
+                    seed_normalised_metric[seed_tag][exp_name] = evaluator.mean_normalised_return()
+                elif eval_tag == 'safety':
+                    seed_normalised_metric[seed_tag][exp_name] = evaluator.mean_normalised_cost()
+                else: 
+                    raise ValueError("eval_tag must be either 'task' or 'safety'.")
+
         #transpose the data
         transposed_data = defaultdict(list)
-        for seed_tag, data in seed_normalised_costs.items():
+        for seed_tag, data in seed_normalised_metric.items():
             for exp, cost in data.items():
                 transposed_data[exp].append(cost)
 
-        mean_normalised_cost = {}
-        std_normalised_cost = {}
+        mean_normalised_metric = {}
+        std_normalised_metric = {}
         for exp, seeds_data in transposed_data.items():
             average = np.mean(seeds_data, axis=0)
             std = np.std(seeds_data, axis=0)
-            mean_normalised_cost[exp] = average
-            std_normalised_cost[exp] = std
+            mean_normalised_metric[exp] = average
+            std_normalised_metric[exp] = std
         
-        return mean_normalised_cost, std_normalised_cost
+        return mean_normalised_metric, std_normalised_metric
