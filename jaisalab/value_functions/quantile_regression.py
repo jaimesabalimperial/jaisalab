@@ -23,6 +23,8 @@ class QRValueFunction(ValueFunction):
 
     Args:
         env_spec (EnvSpec): Environment specification.
+        Vmin (int, float): Minimum of value range. 
+        Vmax (int, float): Maximum of value range. 
         N (int): Number of quantiles to estimate. 
         hidden_sizes (list[int]): Output dimension of dense layer(s) for
             the MLP for mean. For example, (32, 32) means the MLP consists
@@ -55,8 +57,8 @@ class QRValueFunction(ValueFunction):
     def __init__(self,
                  env_spec,
                  N, 
-                 Vmin=-800,
-                 Vmax=800,
+                 Vmin,
+                 Vmax,
                  max_cost=None, #only relevant for safety baseline
                  tolerance=0.01, 
                  hidden_sizes=(32, 32),

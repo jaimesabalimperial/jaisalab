@@ -11,6 +11,7 @@ from dowel import logger, StdOutput
 from jaisalab.utils.env import env_setup
 from jaisalab.envs.inventory_management import InvManagementBacklogEnv, SauteInvManagementBacklogEnv
 from jaisalab.algos.cpo import CPO
+from jaisalab.algos.dcpo import DCPO
 from jaisalab.algos.trpo_safe import SafetyTRPO
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
@@ -213,6 +214,8 @@ def dcpo_backlog(ctxt, seed=1, n_epochs=800):
                             output_nonlinearity=None)
 
     value_function = QRValueFunction(env_spec=env.spec,
+                                     Vmin=-800, 
+                                     Vmax=800.,
                                      N=102,
                                      hidden_sizes=(64, 64),
                                      hidden_nonlinearity=torch.tanh,
@@ -233,7 +236,7 @@ def dcpo_backlog(ctxt, seed=1, n_epochs=800):
                           max_episode_length=env.spec.max_episode_length, 
                           worker_args={'safety_constraint': safety_constraint})
 
-    algo = CPO(env_spec=env.spec,
+    algo = DCPO(env_spec=env.spec,
                policy=policy,
                value_function=value_function,
                safety_constraint=safety_constraint,

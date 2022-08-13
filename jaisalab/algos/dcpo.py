@@ -2,17 +2,16 @@
 import torch
 
 #jaisalab
-from jaisalab.optimizers import ConjugateConstraintOptimizer
-from jaisalab.safety_constraints import SoftInventoryConstraint
-from jaisalab.algos import SafetyTRPO
+from jaisalab.algos import CPO
+from jaisalab.value_functions import QRValueFunction
+from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 
 #garage
-from garage.torch.optimizers import OptimizerWrapper
 from garage.torch._functions import zero_optim_grads
 
 
-class CPO(SafetyTRPO):
-    """Constrained Policy Optimization (CPO).
+class DCPO(CPO):
+    """Distributional Constrained Policy Optimization (DCPO).
 
     Args:
         env_spec (EnvSpec): Environment specification.
@@ -51,6 +50,11 @@ class CPO(SafetyTRPO):
             the mean entropy to the surrogate objective. See
             https://arxiv.org/abs/1805.00909 for more details.
         grad_norm (bool): Wether to normalise the objective loss gradients. 
+        tolerance (float): Probability tolerance for the safety baselines' estimate 
+            of the probability of the average costs being greater than the maximum 
+            allowed cost in CPO (max_lin_constraint); Default=0.05.
+        beta (float): Cost reshaping coefficient; Default=0. 
+        dist_penalty (bool): Boolean specifying if cost reshaping should be ablated. 
     """
 
     def __init__(self,
@@ -74,22 +78,32 @@ class CPO(SafetyTRPO):
                  use_softplus_entropy=False,
                  stop_entropy_gradient=False,
                  entropy_method='no_entropy', 
-                 grad_norm=False):
-
-        #CPO uses ConjugateConstraintOptimizer
-        if policy_optimizer is None:
-            policy_optimizer = OptimizerWrapper(ConjugateConstraintOptimizer,
-                                                policy)
-
-        if vf_optimizer is None:
-            vf_optimizer = OptimizerWrapper(
-                (torch.optim.Adam, dict(lr=2.5e-4)),
-                value_function,
-                max_optimization_epochs=10,
-                minibatch_size=64)
-
+                 grad_norm=False, 
+                 tolerance=0.05, 
+                 beta=2, 
+                 dist_penalty=False): #ablation 
+                
+        
         if safety_constraint is None:
-            safety_constraint = SoftInventoryConstraint()
+            #by default use a quantile regression baseline and soft constraints for IMP
+            safety_baseline = QRValueFunction(env_spec=env_spec,
+                                              Vmin=0, 
+                                              Vmax=60., 
+                                              N=102, 
+                                              hidden_sizes=(64, 64),
+                                              hidden_nonlinearity=torch.tanh,
+                                              output_nonlinearity=None)
+
+            self.safety_constraint = SoftInventoryConstraint(baseline=safety_baseline)
+        else: 
+            if isinstance(safety_constraint, BaseConstraint):
+                self.safety_constraint = safety_constraint
+            else: 
+                raise TypeError("Safety constraint has to inherit from BaseConstraint.")
+
+        if not isinstance(value_function, QRValueFunction):
+            raise TypeError('The value function must be an instance of \
+                jaisalab.value_functions.QRValueFunction in DCPO.')
 
         super().__init__(env_spec=env_spec,
                          policy=policy,
@@ -102,6 +116,7 @@ class CPO(SafetyTRPO):
                          safety_gae_lambda=safety_gae_lambda,
                          center_safety_vals=center_safety_vals,
                          num_train_per_epoch=num_train_per_epoch,
+                         step_size=step_size, 
                          discount=discount,
                          gae_lambda=gae_lambda,
                          center_adv=center_adv,
@@ -112,8 +127,16 @@ class CPO(SafetyTRPO):
                          entropy_method=entropy_method,
                          grad_norm=grad_norm)
         
-        self.max_quad_constraint = step_size 
-        self.max_lin_constraint = self.safety_constraint.safety_step
+        self.dist_penalty = dist_penalty
+        self.tolerance = tolerance
+        self.beta = beta
+
+        if not isinstance(self._safety_baseline, QRValueFunction):
+            raise TypeError('The safety baseline must be an instance of \
+                jaisalab.value_functions.QRValueFunction in DCPO.')
+
+        z_dist = self._safety_baseline.V_range
+        self.max_constraint_idx = (torch.abs(z_dist - self.max_lin_constraint)).argmin()
         
     def reshape_constraint(self):
         """Compute new constraint value $\tilde{J}_{C}$ and its target $d$ (i.e. maximum allowed 
@@ -157,7 +180,6 @@ class CPO(SafetyTRPO):
 
         return constraint
 
-
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages):
         r"""Train the policy.
@@ -191,8 +213,12 @@ class CPO(SafetyTRPO):
         safety_loss_grad = self._get_grad(safety_loss)
         safety_loss_grad = safety_loss_grad/torch.norm(safety_loss_grad) 
 
+        #distributional penalty for dcpo
+        if self.dist_penalty: 
+            self.constraint_value = self.reshape_constraint()
+
         #define linear (safety) and quadratic (kl) constraints
-        lin_leq_constraint = (self.constraint_value, self.max_lin_constraint)         
+        lin_leq_constraint = (self.constraint_value, self.c)         
         
         quad_leq_constraint = (lambda: self._compute_kl_constraint(obs), 
                                 self.max_quad_constraint)
