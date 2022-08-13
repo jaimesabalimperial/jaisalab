@@ -115,49 +115,6 @@ class CPO(SafetyTRPO):
         self.max_quad_constraint = step_size 
         self.max_lin_constraint = self.safety_constraint.safety_step
         
-    def reshape_constraint(self):
-        """Compute new constraint value $\tilde{J}_{C}$ and its target $d$ (i.e. maximum allowed 
-        $\tilde{J}_{C}$)such
-        that: 
-
-        \begin{equation}
-
-            \tilde{J}_{C} = J{C} * (1 + \rho) + \beta * (J_{C} - d)
-
-            \tilde{d} = d * (\tilde{J}_{C} / J{C})
-        
-        \end{equation}
-
-        where $\rho$ is the surplus probability that J_{C} > d as per the estimated quantile 
-        distribution of costs (using QRValueFunction) and $\beta$ is a weight coefficient assigned 
-        to the distance between J_{C} and its target d. 
-        
-        To ensure that dual problem constraint inequality holds (i.e. $\tilde{J}_{C} - \tilde{d} > 0 
-        \iff J_{C} - d > 0$) we must condition the reshaping of $J_{C}$ and $d$ such that it is 
-        only done if  J_{C} / d > \beta / (1 + \rho + \beta) (assuming that \rho > 0, \beta > 0). 
-        """
-        #use initial state prediction of quantiles to retrieve baseline of constraint value
-        with torch.no_grad():
-            mean_quantile_probs = self.get_quantiles(self._safety_baseline, self.initial_state)
-
-        #compute surplus probability of obtaining J_{C} > d as per safety baseline
-        surplus_prob = sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance
-        surplus_prob = max(surplus_prob, 0)
-
-        if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + surplus_prob + self.beta)): 
-            #calculate difference between constraint value and limit
-            delta =  self.constraint_value - self.max_lin_constraint        
-            constraint = self.constraint_value * (1 + surplus_prob) + self.beta * delta
-            
-            #update moving target for constraint limit
-            self.c = self.max_lin_constraint * (constraint / self.constraint_value)
-        else: #solve dual problem without reshaping
-            self.c = self.max_lin_constraint
-            return self.constraint_value
-
-        return constraint
-
-
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages):
         r"""Train the policy.
