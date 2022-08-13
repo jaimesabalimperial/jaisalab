@@ -153,7 +153,7 @@ class CPO(PolicyGradientSafe):
 
         excess_prob = max(sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance, 0)
 
-        if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + self.beta)): 
+        if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + excess_prob + self.beta)): 
             #calculate difference between constraint value and limit
             delta =  self.constraint_value - self.max_lin_constraint        
             constraint = self.constraint_value * (1 + excess_prob) + self.beta * delta
