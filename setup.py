@@ -8,9 +8,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setuptools.setup(
     name="jaisalab",
     version="0.0.1",
-    author="Jaime Sabal",
+    author="Jaime Sabal Bermúdez",
     author_email="jsabalb@gmail.com",
-    description="RL Lab for Jaime Sabal's 2022 MSc AI Individual Project",
+    description="Framework that builds on the garage toolkit for the evaluation and \
+                 development of constrained RL algorithms.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/jaimesabalimperial/jaisalab",
