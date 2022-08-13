@@ -2,7 +2,7 @@
 import torch
 
 #jaisalab
-from jaisalab.algos import CPO
+from jaisalab.algos.cpo import CPO
 from jaisalab.value_functions import QRValueFunction
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 

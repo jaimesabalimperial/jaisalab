@@ -4,7 +4,7 @@ import torch
 #jaisalab
 from jaisalab.optimizers import ConjugateConstraintOptimizer
 from jaisalab.safety_constraints import SoftInventoryConstraint
-from jaisalab.algos import SafetyTRPO
+from jaisalab.algos.trpo_safe import SafetyTRPO
 
 #garage
 from garage.torch.optimizers import OptimizerWrapper

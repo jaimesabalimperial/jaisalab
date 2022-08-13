@@ -8,8 +8,6 @@ from garage.torch._functions import zero_optim_grads
 
 #jaisalab
 from jaisalab.algos.policy_gradient_safe import PolicyGradientSafe
-from jaisalab.safety_constraints import SoftInventoryConstraint
-
 
 class SafetyTRPO(PolicyGradientSafe):
     """Trust Region Policy Optimization (TRPO) that logs information
@@ -75,6 +73,7 @@ class SafetyTRPO(PolicyGradientSafe):
                  use_softplus_entropy=False,
                  stop_entropy_gradient=False,
                  entropy_method='no_entropy', 
+                 grad_norm=False, 
                  is_saute=False):
 
         if policy_optimizer is None:
@@ -83,10 +82,10 @@ class SafetyTRPO(PolicyGradientSafe):
                 policy)
             
         else: 
-            if not isinstance(policy_optimizer, ConjugateGradientOptimizer):
-                warning("Policy Optimizer for TRPO should be ConjugateGradientOptimizer.")
-            
-            policy_optimizer = OptimizerWrapper(policy_optimizer,
+            if isinstance(policy_optimizer, OptimizerWrapper):
+                pass
+            else:
+                policy_optimizer = OptimizerWrapper(policy_optimizer,
                                                 policy)
 
         if vf_optimizer is None:
@@ -115,6 +114,7 @@ class SafetyTRPO(PolicyGradientSafe):
                          use_softplus_entropy=use_softplus_entropy,
                          stop_entropy_gradient=stop_entropy_gradient,
                          entropy_method=entropy_method,
+                         grad_norm=grad_norm,
                          is_saute=is_saute)
     
     def _compute_objective(self, advantages, obs, actions, rewards):
