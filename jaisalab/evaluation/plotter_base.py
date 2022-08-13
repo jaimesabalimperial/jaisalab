@@ -267,7 +267,14 @@ class BasePlotter():
         """
         if 'fontsize' in kwargs.keys():
             plt.rcParams.update({'font.size': kwargs['fontsize']})
+        if 'custom_labels' in kwargs.keys(): #allow for custom labels to be inputted
+            labels = kwargs['custom_labels']
+            if len(labels) != len(self._exp_labels):
+                raise IndexError('Number of labels must match number of experiments.')
+        else: 
+            labels = self._exp_labels
 
+        #handle different cases where single/multiple experiments are inputted
         fig_kwargs = {k:v for k,v in kwargs.items() if k in inspect.getargspec(plt.figure)[0]}
         fig = plt.figure(**fig_kwargs)
         plt.grid()
@@ -275,7 +282,7 @@ class BasePlotter():
             min_episode_num = min([len(episodes) for episodes in x_array])
             for i, (x,y) in enumerate(zip(x_array, y_array)):
                 plt.plot(x[:min_episode_num], y[:min_episode_num], 
-                         color=self._colors[i], label=self._exp_labels[i])
+                         color=self._colors[i], label=labels[i])
                 if std is not None: 
                     plt.fill_between(x[:min_episode_num], y[:min_episode_num]-std[i][:min_episode_num], 
                                      y[:min_episode_num]+std[i][:min_episode_num], color=self._colors[i], 

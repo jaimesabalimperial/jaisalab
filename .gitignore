@@ -23,6 +23,7 @@ jaisalab/__pycache__/
 **/good_seeds
 **/bad_seeds
 **/N_experiments
+**/.history
 
 # C extensions
 *.so

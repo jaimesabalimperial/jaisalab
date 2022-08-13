@@ -35,7 +35,6 @@ class RLPlotter(BasePlotter):
 
     def plot_returns(self, title=None, use_legend=True, return_lim=None, **kwargs):
         """Plot progression of returns throughout epochs."""
-        plot_kwargs = kwargs if kwargs is not None else {}
         y_column = 'Evaluation/AverageReturn'
         ylabel = 'Average Return'
     
@@ -43,16 +42,15 @@ class RLPlotter(BasePlotter):
         x_array, y_array, std_array = self.get_data_arrays(y_column, std_column)
 
         if return_lim is not None: 
-            plot_kwargs['hline_label'] = 'max return'
+            kwargs['hline_label'] = 'max return'
 
         self.plot(x_array, y_array, ylabel, std=std_array, 
                   title=title, use_legend=use_legend, 
-                  hline=return_lim, **plot_kwargs)
+                  hline=return_lim, **kwargs)
         self.savefig(flag=1)
 
     def plot_costs(self, title=None, use_legend=True, cost_lim=None, **kwargs):
         """Plot progression of costs throughout epochs."""
-        plot_kwargs = kwargs if kwargs is not None else {}
         y_column = 'Evaluation/AverageSafetyReturn'
         std_column = 'Evaluation/StdSafetyReturn'
         ylabel = 'Average Costs'
@@ -60,11 +58,11 @@ class RLPlotter(BasePlotter):
         x_array, y_array, std_array = self.get_data_arrays(y_column, std_column)
         
         if cost_lim is not None: 
-            plot_kwargs['hline_label'] = 'max cost'
+            kwargs['hline_label'] = 'max cost'
 
         self.plot(x_array, y_array, ylabel, std=std_array, 
                   title=title, use_legend=use_legend, 
-                  hline=cost_lim, **plot_kwargs)
+                  hline=cost_lim, **kwargs)
         self.savefig(flag=6)
 
     def plot_constraint_vals(self, title=None, use_legend=True, 
@@ -84,8 +82,8 @@ class RLPlotter(BasePlotter):
                       title=title, use_legend=use_legend, **plot_kwargs)
         else: 
             x_array, y_array = self.get_data_arrays(y_column)
-            self.plot(x_array, y_array, ylabel, 
-                      title=title, use_legend=use_legend, **plot_kwargs)
+            self.plot(x_array, y_array, ylabel, title=title, 
+                      use_legend=use_legend, **plot_kwargs)
 
         self.savefig(flag=3)
     
