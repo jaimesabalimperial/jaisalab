@@ -1,6 +1,6 @@
 """Constrained Policy Optimization using PyTorch with the garage framework."""
 import torch
-
+import numpy as np
 #jaisalab
 from jaisalab.algos.cpo import CPO
 from jaisalab.value_functions import QRValueFunction
@@ -79,7 +79,7 @@ class DCPO(CPO):
                  stop_entropy_gradient=False,
                  entropy_method='no_entropy', 
                  grad_norm=False, 
-                 tolerance=0.05, 
+                 safety_margin=0.10, 
                  beta=2, 
                  dist_penalty=False): #ablation 
                 
@@ -127,8 +127,11 @@ class DCPO(CPO):
                          entropy_method=entropy_method,
                          grad_norm=grad_norm)
         
+        assert safety_margin > 0 and safety_margin < 1, 'Safety margin must be between 0 and 1.'
+        assert beta > 0, 'Beta must be positive.'
+        
         self.dist_penalty = dist_penalty
-        self.tolerance = tolerance
+        self.safety_margin = safety_margin
         self.beta = beta
 
         if not isinstance(self._safety_baseline, QRValueFunction):
@@ -163,22 +166,32 @@ class DCPO(CPO):
         with torch.no_grad():
             mean_quantile_probs = self.get_quantiles(self._safety_baseline, self.initial_state)
 
-        #compute surplus probability of obtaining J_{C} > d as per safety baseline
-        surplus_prob = sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance
-        surplus_prob = max(surplus_prob, 0)
+        if self.constraint_value - self.max_lin_constraint > 0: #constraint violated 
+            P = sum(mean_quantile_probs[self.max_constraint_idx:]) #P(J > d)
+            k = self.beta * P
+        else:
+            P = torch.Tensor([-sum(mean_quantile_probs[:self.max_constraint_idx])]) #P(J < d)
+            k = torch.clamp(self.beta * P, min=-self.safety_margin, max=None).item()
 
-        if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + surplus_prob + self.beta)): 
+        J = self.constraint_value * (1 + k) #new constraint
+        d = self.max_lin_constraint * (1 + k) #new target
+
+        #compute surplus probability of obtaining J_{C} > d as per safety baseline
+        #surplus_prob = sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance
+        #surplus_prob = max(surplus_prob, 0)
+
+        #if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + surplus_prob + self.beta)): 
             #calculate difference between constraint value and limit
-            delta =  self.constraint_value - self.max_lin_constraint        
-            constraint = self.constraint_value * (1 + surplus_prob) + self.beta * delta
+        #    delta =  self.constraint_value - self.max_lin_constraint        
+        #    constraint = self.constraint_value * (1 + surplus_prob) + self.beta * delta
             
             #update moving target for constraint limit
-            self.c = self.max_lin_constraint * (constraint / self.constraint_value)
-        else: #solve dual problem without reshaping
-            self.c = self.max_lin_constraint
-            return self.constraint_value
+        #    self.c = self.max_lin_constraint * (constraint / self.constraint_value)
+        #else: #solve dual problem without reshaping
+        #    self.c = self.max_lin_constraint
+        #    return self.constraint_value
 
-        return constraint
+        return J, d
 
     def _train_policy(self, obs, actions, rewards, advantages, 
                       safety_rewards, safety_advantages):
@@ -215,10 +228,10 @@ class DCPO(CPO):
 
         #distributional penalty for dcpo
         if self.dist_penalty: 
-            self.constraint_value = self.reshape_constraint()
+            J, d = self.reshape_constraint()
 
         #define linear (safety) and quadratic (kl) constraints
-        lin_leq_constraint = (self.constraint_value, self.c)         
+        lin_leq_constraint = (J, d)         
         
         quad_leq_constraint = (lambda: self._compute_kl_constraint(obs), 
                                 self.max_quad_constraint)
