@@ -1,0 +1,184 @@
+\begin{thebibliography}{25}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Sutton and Barto(2018)]{Sutton1998}
+Richard~S. Sutton and Andrew~G. Barto.
+\newblock \emph{Reinforcement Learning: An Introduction}.
+\newblock The MIT Press, second edition, 2018.
+\newblock URL \url{http://incompleteideas.net/book/the-book-2nd.html}.
+
+\bibitem[Silver et~al.(2016)Silver, Huang, Maddison, Guez, Sifre, van~den
+  Driessche, Schrittwieser, Antonoglou, Panneershelvam, Lanctot, Dieleman,
+  Grewe, Nham, Kalchbrenner, Sutskever, Lillicrap, Leach, Kavukcuoglu, Graepel,
+  and Hassabis]{SilverHuangEtAl16nature}
+David Silver, Aja Huang, Chris~J. Maddison, Arthur Guez, Laurent Sifre, George
+  van~den Driessche, Julian Schrittwieser, Ioannis Antonoglou, Veda
+  Panneershelvam, Marc Lanctot, Sander Dieleman, Dominik Grewe, John Nham, Nal
+  Kalchbrenner, Ilya Sutskever, Timothy Lillicrap, Madeleine Leach, Koray
+  Kavukcuoglu, Thore Graepel, and Demis Hassabis.
+\newblock Mastering the game of {Go} with deep neural networks and tree search.
+\newblock \emph{Nature}, 529\penalty0 (7587):\penalty0 484--489, #jan# 2016.
+\newblock ISSN 0028-0836.
+\newblock \doi{10.1038/nature16961}.
+
+\bibitem[Bellman(1958)]{bellman_1958}
+Richard Bellman.
+\newblock Dynamic programming and stochastic control processes.
+\newblock \emph{Information and Control}, 1\penalty0 (3):\penalty0 228–239,
+  1958.
+\newblock \doi{10.1016/s0019-9958(58)80003-0}.
+
+\bibitem[Rummery and Niranjan(1994)]{sarsa}
+G.~A. Rummery and M.~Niranjan.
+\newblock On-line q-learning using connectionist systems.
+\newblock Technical report, 1994.
+
+\bibitem[Watkins and Dayan(1992)]{q-learning}
+Christopher~J. Watkins and Peter Dayan.
+\newblock Q-learning.
+\newblock \emph{Machine Learning}, 8\penalty0 (3-4):\penalty0 279–292, 1992.
+\newblock \doi{10.1007/bf00992698}.
+
+\bibitem[Bellman(1957)]{bellman-dp}
+Richard Bellman.
+\newblock \emph{{Dynamic Programming}}.
+\newblock Dover Publications, 1957.
+\newblock ISBN 9780486428093.
+
+\bibitem[Mnih et~al.(2013)Mnih, Kavukcuoglu, Silver, Graves, Antonoglou,
+  Wierstra, and Riedmiller]{deep-rl}
+Volodymyr Mnih, Koray Kavukcuoglu, David Silver, Alex Graves, Ioannis
+  Antonoglou, Daan Wierstra, and Martin Riedmiller.
+\newblock Playing atari with deep reinforcement learning, 2013.
+\newblock URL \url{https://arxiv.org/abs/1312.5602}.
+
+\bibitem[Lin(1992)]{experience-replay}
+Longxin Lin.
+\newblock Reinforcement learning for robots using neural networks.
+\newblock 1992.
+
+\bibitem[Mnih et~al.(2015)Mnih, Kavukcuoglu, Silver, Rusu, Veness, Bellemare,
+  Graves, Riedmiller, Fidjeland, Ostrovski, and et~al.]{deep-q-networks}
+Volodymyr Mnih, Koray Kavukcuoglu, David Silver, Andrei~A. Rusu, Joel Veness,
+  Marc~G. Bellemare, Alex Graves, Martin Riedmiller, Andreas~K. Fidjeland,
+  Georg Ostrovski, and et~al.
+\newblock Human-level control through deep reinforcement learning.
+\newblock \emph{Nature}, 518\penalty0 (7540):\penalty0 529–533, 2015.
+\newblock \doi{10.1038/nature14236}.
+
+\bibitem[van Hasselt et~al.(2015)van Hasselt, Guez, and Silver]{DDQN}
+Hado van Hasselt, Arthur Guez, and David Silver.
+\newblock Deep reinforcement learning with double q-learning, 2015.
+\newblock URL \url{https://arxiv.org/abs/1509.06461}.
+
+\bibitem[Sutton et~al.(1999)Sutton, McAllester, Singh, and
+  Mansour]{policy-gradients}
+Richard~S. Sutton, David McAllester, Satinder Singh, and Yishay Mansour.
+\newblock Policy gradient methods for reinforcement learning with function
+  approximation.
+\newblock In \emph{Proceedings of the 12th International Conference on Neural
+  Information Processing Systems}, NIPS'99, page 1057–1063, Cambridge, MA,
+  USA, 1999. MIT Press.
+
+\bibitem[Schulman et~al.(2015)Schulman, Levine, Moritz, Jordan, and
+  Abbeel]{trpo}
+John Schulman, Sergey Levine, Philipp Moritz, Michael~I. Jordan, and Pieter
+  Abbeel.
+\newblock Trust region policy optimization, 2015.
+\newblock URL \url{https://arxiv.org/abs/1502.05477}.
+
+\bibitem[Konda and Tsitsiklis(2000)]{actor-critic-algorithms}
+Vijay Konda and John Tsitsiklis.
+\newblock Actor-critic algorithms.
+\newblock In \emph{SIAM Journal on Control and Optimization}, pages 1008--1014.
+  MIT Press, 2000.
+
+\bibitem[Haarnoja et~al.(2018)Haarnoja, Zhou, Abbeel, and Levine]{SAC}
+Tuomas Haarnoja, Aurick Zhou, Pieter Abbeel, and Sergey Levine.
+\newblock Soft actor-critic: Off-policy maximum entropy deep reinforcement
+  learning with a stochastic actor, 2018.
+\newblock URL \url{https://arxiv.org/abs/1801.01290}.
+
+\bibitem[Weng(2018)]{PG-algorithms}
+Lilian Weng.
+\newblock Policy gradient algorithms.
+\newblock \emph{lilianweng.github.io}, 2018.
+\newblock URL
+  \url{https://lilianweng.github.io/posts/2018-04-08-policy-gradient/}.
+
+\bibitem[Lillicrap et~al.(2015)Lillicrap, Hunt, Pritzel, Heess, Erez, Tassa,
+  Silver, and Wierstra]{DDPG}
+Timothy~P. Lillicrap, Jonathan~J. Hunt, Alexander Pritzel, Nicolas Heess, Tom
+  Erez, Yuval Tassa, David Silver, and Daan Wierstra.
+\newblock Continuous control with deep reinforcement learning, 2015.
+\newblock URL \url{https://arxiv.org/abs/1509.02971}.
+
+\bibitem[Bellemare et~al.(2017)Bellemare, Dabney, and
+  Munos]{distributional-perspective}
+Marc~G. Bellemare, Will Dabney, and Rémi Munos.
+\newblock A distributional perspective on reinforcement learning, 2017.
+\newblock URL \url{https://arxiv.org/abs/1707.06887}.
+
+\bibitem[Dabney et~al.(2017)Dabney, Rowland, Bellemare, and
+  Munos]{quantile-regression}
+Will Dabney, Mark Rowland, Marc~G. Bellemare, and Rémi Munos.
+\newblock Distributional reinforcement learning with quantile regression, 2017.
+\newblock URL \url{https://arxiv.org/abs/1710.10044}.
+
+\bibitem[Dabney et~al.(2018)Dabney, Ostrovski, Silver, and
+  Munos]{quantile-networks}
+Will Dabney, Georg Ostrovski, David Silver, and Rémi Munos.
+\newblock Implicit quantile networks for distributional reinforcement learning,
+  2018.
+\newblock URL \url{https://arxiv.org/abs/1806.06923}.
+
+\bibitem[Clements et~al.(2019)Clements, Van~Delft, Robaglia, Slaoui, and
+  Toth]{risk-uncertainty}
+William~R. Clements, Bastien Van~Delft, Benoît-Marie Robaglia, Reda~Bahi
+  Slaoui, and Sébastien Toth.
+\newblock Estimating risk and uncertainty in deep reinforcement learning, 2019.
+\newblock URL \url{https://arxiv.org/abs/1905.09638}.
+
+\bibitem[{van Ravenzwaaij} et~al.(2018){van Ravenzwaaij}, Cassey, and
+  Brown]{MCMC}
+Don {van Ravenzwaaij}, Pete Cassey, and {Scott D.} Brown.
+\newblock A simple introduction to markov chain monte-carlo sampling.
+\newblock \emph{Psychonomic Bulletin & Review}, 25\penalty0 (1):\penalty0
+  143--154, February 2018.
+\newblock ISSN 1069-9384.
+\newblock \doi{10.3758/s13423-016-1015-8}.
+
+\bibitem[Pearce et~al.(2020)Pearce, Leibfried, and Brintrup]{map-sampling}
+Tim Pearce, Felix Leibfried, and Alexandra Brintrup.
+\newblock Uncertainty in neural networks: Approximately bayesian ensembling.
+\newblock In Silvia Chiappa and Roberto Calandra, editors, \emph{Proceedings of
+  the Twenty Third International Conference on Artificial Intelligence and
+  Statistics}, volume 108 of \emph{Proceedings of Machine Learning Research},
+  pages 234--244. PMLR, 26--28 Aug 2020.
+\newblock URL \url{https://proceedings.mlr.press/v108/pearce20a.html}.
+
+\bibitem[Zhang et~al.(2022)Zhang, Lin, Han, Wang, and
+  Lv]{conservative-distributional-rl}
+Hengrui Zhang, Youfang Lin, Sheng Han, Shuo Wang, and Kai Lv.
+\newblock Conservative distributional reinforcement learning with safety
+  constraints, 2022.
+\newblock URL \url{https://arxiv.org/abs/2201.07286}.
+
+\bibitem[Achiam et~al.(2017)Achiam, Held, Tamar, and Abbeel]{cpo}
+Joshua Achiam, David Held, Aviv Tamar, and Pieter Abbeel.
+\newblock Constrained policy optimization, 2017.
+\newblock URL \url{https://arxiv.org/abs/1705.10528}.
+
+\bibitem[Sootla et~al.(2022)Sootla, Cowen-Rivers, Jafferjee, Wang, Mguni, Wang,
+  and Bou-Ammar]{saute}
+Aivar Sootla, Alexander~I. Cowen-Rivers, Taher Jafferjee, Ziyan Wang, David
+  Mguni, Jun Wang, and Haitham Bou-Ammar.
+\newblock Saute rl: Almost surely safe reinforcement learning using state
+  augmentation, 2022.
+\newblock URL \url{https://arxiv.org/abs/2202.06558}.
+
+\end{thebibliography}
