@@ -207,21 +207,17 @@ class SeedEvaluator():
         self.experiment_tags =  ['cpo', 'trpo', 'ablation', 'dcpo']
 
         self._evaluators = defaultdict(list)
-        self._override_warnings = defaultdict(list)
-        self._rollout_necessary = defaultdict(list)
         for seed_dir in self.seed_data_dirs: 
-
             seed_tag = seed_dir[-1]
             snapshots = get_snapshot_dirs(seed_dir)
             exp_fdirs = [snapshot.split('/')[-1] for snapshot in snapshots]
-            exp_names = get_labels_from_dirs(exp_fdirs, self.experiment_tags)
-            eval_dict = {}
-            for exp_name, snapshot in zip(exp_names, snapshots):
+            for exp_fdir, snapshot in zip(exp_fdirs, snapshots):
+                eval_dict = {}
                 eval_log_file = os.path.join(snapshot, 'evaluation.csv')
                 eval_exists = os.path.exists(eval_log_file)
                 eval_dict['evaluator'] = Evaluator(snapshot, override=override)
                 eval_dict['rollout_necessary'] = not eval_exists
-                eval_dict['experiment'] = exp_name
+                eval_dict['experiment'] = exp_fdir
                 self._evaluators[seed_tag].append(eval_dict)
 
     def rollout(self, n_epochs):
