@@ -68,8 +68,8 @@ class Evaluator(object):
                                 envs=self._env, 
                                 max_episode_length=self._max_episode_length, 
                                 worker_args={'safety_constraint': self._safety_constraint})
-
-    def retrieve_evaluation(self):
+    @property
+    def eval_data(self):
         """Gather data logged during evaluation."""
         file = open(f'{self.snapshot_dir}/evaluation.csv')
         csvreader = csv.reader(file) #csv reader
@@ -131,7 +131,6 @@ class Evaluator(object):
         
         #remove output from logger after evaluation is complete
         logger.remove_all() 
-        self.data = self.retrieve_evaluation()
         return epochs
     
     def mean_normalised_return(self):
@@ -143,10 +142,9 @@ class Evaluator(object):
         if not hasattr(self, 'data'):
             raise AttributeError('Evaluation has not been ran yet. Use rollout() method to run \
                 an evaluation')
-        test_constraints = self.data['AverageDiscountedReturn']
+        test_constraints = self.eval_data['AverageDiscountedReturn']
         norm_avg_cost = np.mean(test_constraints) / self.max_lin_constraint
         return norm_avg_cost
-
 
     def mean_normalised_cost(self):
         """Evaluate the mean normalised cost of the ran evaluation 
@@ -157,9 +155,14 @@ class Evaluator(object):
         if not hasattr(self, 'data'):
             raise AttributeError('Evaluation has not been ran yet. Use rollout() method to run \
                 an evaluation')
-        test_constraints = self.data['AverageDiscountedSafetyReturn']
+        test_constraints = self.eval_data['AverageDiscountedSafetyReturn']
         norm_avg_cost = np.mean(test_constraints) / self.max_lin_constraint
         return norm_avg_cost
+    
+    def num_violations(self):
+        test_constraints = self.eval_data['AverageDiscountedSafetyReturn']
+        num_violations = len(test_constraints[test_constraints > self.max_lin_constraint])
+        return num_violations
 
 class SeedEvaluator():
     """Allows for the quick evaluation of multiple seeds by 
