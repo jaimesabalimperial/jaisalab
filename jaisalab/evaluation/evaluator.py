@@ -2,6 +2,7 @@
 from tqdm import tqdm 
 import numpy as np
 import os
+from os import listdir
 from dowel import logger, tabular
 import dowel
 import csv
@@ -35,6 +36,7 @@ class Evaluator(object):
         eval_exists = os.path.exists(eval_log_file)
         if eval_exists:
             if override==True:
+                os.remove(eval_log_file)
                 logger.add_output(dowel.CsvOutput(eval_log_file))
                 logger.add_output(dowel.StdOutput())
                 self._override_error = False
@@ -201,13 +203,14 @@ class SeedEvaluator():
 
     def __init__(self, seed_dir, override=False) -> None:
         self.seed_dir = seed_dir
-        self.seed_data_dirs = get_snapshot_dirs(seed_dir)
+        self.seed_data_dirs = [seed_dir + '/' + dir for dir in listdir(seed_dir)]
         self.experiment_tags =  ['cpo', 'trpo', 'ablation', 'dcpo']
 
         self._evaluators = defaultdict(list)
         self._override_warnings = defaultdict(list)
         self._rollout_necessary = defaultdict(list)
         for seed_dir in self.seed_data_dirs: 
+
             seed_tag = seed_dir[-1]
             snapshots = get_snapshot_dirs(seed_dir)
             exp_fdirs = [snapshot.split('/')[-1] for snapshot in snapshots]
@@ -232,11 +235,11 @@ class SeedEvaluator():
             for eval in eval_dicts:
                 evaluator = eval['evaluator']
                 exp_name = eval['experiment']
-                logger.log(f'Running evaluation for seed#{seed_tag} / {exp_name}')
+                print(f'Running evaluation for seed#{seed_tag} / {exp_name}')
                 try:
                     evaluator.rollout(n_epochs)
                 except FileExistsError:
-                    logger.log(f'Evaluation already exists in {evaluator.snapshot_dir}, moving on...')
+                    print(f'Evaluation already exists in {evaluator.snapshot_dir}, moving on...')
                     continue
     
     def get_evaluation(self, eval_tag):
