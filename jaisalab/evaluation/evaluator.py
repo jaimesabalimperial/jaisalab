@@ -134,19 +134,6 @@ class Evaluator(object):
         #remove output from logger after evaluation is complete
         logger.remove_all() 
         return epochs
-    
-    def mean_normalised_return(self):
-        """Evaluate the mean normalised cost of the ran evaluation 
-        as per the maximum constraint value specified in the algorithm.
-        
-        Assumes the maximum constraint value is saved in an attribute 
-        named 'max_lin_constraint'."""
-        if not hasattr(self, 'data'):
-            raise AttributeError('Evaluation has not been ran yet. Use rollout() method to run \
-                an evaluation')
-        test_constraints = self.eval_data['AverageDiscountedReturn']
-        norm_avg_cost = np.mean(test_constraints) / self.max_lin_constraint
-        return norm_avg_cost
 
     def mean_normalised_cost(self):
         """Evaluate the mean normalised cost of the ran evaluation 

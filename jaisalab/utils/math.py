@@ -1,6 +1,5 @@
 import torch
 import math
-import numpy as np
 from sympy import ShapeError
 from numbers import Number
 

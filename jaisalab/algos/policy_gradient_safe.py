@@ -7,7 +7,7 @@ Author: Jaime Sabal Bermúdez
 #garage
 from garage.torch.algos import VPG
 from garage.torch import (compute_advantages, filter_valids)
-from garage.torch._functions import np_to_torch, zero_optim_grads
+from garage.torch._functions import np_to_torch
 from garage.np import discount_cumsum
 
 #jaisalab

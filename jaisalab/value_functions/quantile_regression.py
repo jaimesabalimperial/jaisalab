@@ -11,7 +11,7 @@ from jaisalab.utils.math import calc_mean_std, log_prob
 from garage.torch.value_functions.value_function import ValueFunction
 
 
-class QRValueFunction(ValueFunction):
+class QuantileValueFunction(ValueFunction):
     """Quantile Regression Value Function with Model. We offer 
     a slight modification in terms of the value function, where instead 
     of calculating the quantile Huber loss we use a surrogate loss in 
