@@ -149,7 +149,7 @@ class CPO(SafetyTRPO):
         safety_loss_grad = safety_loss_grad/torch.norm(safety_loss_grad) 
 
         #define linear (safety) and quadratic (kl) constraints
-        lin_leq_constraint = (self.constraint_value, self.max_lin_constraint)         
+        lin_leq_constraint = (self.constraint_value, self.max_lin_constraint) #constraint value computed in PolicyGradientsafe        
         
         quad_leq_constraint = (lambda: self._compute_kl_constraint(obs), 
                                 self.max_quad_constraint)

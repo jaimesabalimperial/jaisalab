@@ -118,17 +118,22 @@ class BasePlotter():
                 data_dict[metric] = np.array(values)
         return data_dict
 
-    def _get_columns(self, col_names):
+    def _get_columns(self, col_names, prefix=None):
         col_suffixes = []
         col_names_ls = []
         for col in self.data.keys():
             sep_col = col.split('/')
             if len(sep_col) > 1:
                 col_suffix = sep_col[1]
-                if col_suffix in col_names:
-                    col_suffixes.append(col_suffix)
-                    col_names_ls.append(col) 
-        
+                col_prefix = sep_col[0]
+                if prefix is not None: 
+                    if col_suffix in col_names and col_prefix == prefix:
+                        col_suffixes.append(col_suffix)
+                        col_names_ls.append(col) 
+                else: 
+                    if col_suffix in col_names: 
+                        col_suffixes.append(col_suffix)
+                        col_names_ls.append(col) 
         if len(col_names_ls) != len(col_names): 
             raise KeyError('Specified columns were not found.')
     
@@ -206,7 +211,7 @@ class BasePlotter():
         
         return mean_returns_array, std_returns_array
     
-    def get_quantiles_data(self, Vmin, Vmax):
+    def get_quantiles_data(self, Vmin, Vmax, metric='task'):
         """Retrieve data concerning quantile distribution (should be plotted 
         only for case where QRValueFunction is used for the value function/safety 
         baseline.
@@ -223,6 +228,11 @@ class BasePlotter():
             quantile_vals (list): List containing positions of quantile probability 
                 bins. 
         """
+        if metric == 'task':
+            vf = 'QRValueFunction'
+        elif metric == 'safety':
+            vf = 'SafetyBaseline'
+    
         if isinstance(self.fdir, (list, tuple)):
             if len(self.fdir) > 1:
                 raise TypeError('Distribution progression can only be plotted for individual experiments.')
@@ -230,7 +240,7 @@ class BasePlotter():
         N = max([int(col.split('#')[-1]) for col in self.data.keys() if '#' in col]) + 1
         col_names = [f'QuantileProbability#{j}' for j in range(N)]
 
-        cols_ls, names_idxs = self._get_columns(col_names)
+        cols_ls, names_idxs = self._get_columns(col_names, prefix=vf)
         #retrieve quantile probabilities
         quantile_probs = []
         for j in range(N):

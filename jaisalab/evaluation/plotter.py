@@ -138,18 +138,36 @@ class RLPlotter(BasePlotter):
         plt.ylabel('Probability')
         self.savefig(flag=8)
 
-    def plot_quantiles_progression(self, Vmin=-800, Vmax=800, interval=20, **kwargs):
+    def plot_quantiles_progression(self, Vmin=-800, Vmax=800, interval=20, metric='task', 
+                                   **kwargs):
         """Plot progression of quantile value distribution throughout learning."""
-        quantile_probs, quantile_vals = self.get_quantiles_data(Vmin, Vmax)
+        assert metric in ['task', 'safety'], "Metric to be plotted must either be 'task' or 'safety'."
+
+        if 'fontsize' in kwargs.keys():
+            plt.rcParams.update({'font.size': kwargs['fontsize']})
+
+        #retrieve quantiles data    
+        quantile_probs, quantile_vals = self.get_quantiles_data(Vmin, Vmax, metric)
+
+        if metric == 'task':
+            xlabel = 'Value'
+            color = 'royalblue'
+            edge_color = 'navy'
+        else: 
+            xlabel = 'Constraint Value'
+            color = 'red'
+            edge_color = 'maroon'
+        
+        width = (Vmax - Vmin) / 100 #bar width
 
         fig = plt.figure()
         def dist_progress(i):
             fig.clear()
             plt.ylim(0,1)
             p = plt.bar(quantile_vals, quantile_probs[i*interval], 
-                        color='dimgrey', edgecolor='black', width=25)
-            plt.title(f'State-Return Distribution for initial IMP state at epoch: {i*interval}')
-            plt.xlabel('Value')
+                        color=color, edgecolor=edge_color, width=width)
+            plt.title(f'epoch: {i*interval}')
+            plt.xlabel(xlabel)
             plt.ylabel('Probability')
 
         time_interval = 5000 / len(quantile_probs)
