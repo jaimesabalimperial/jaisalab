@@ -3,7 +3,7 @@ import torch
 import numpy as np
 #jaisalab
 from jaisalab.algos.cpo import CPO
-from jaisalab.value_functions import QuantileValueFunction
+from jaisalab.value_functions import QRValueFunction
 from jaisalab.safety_constraints import SoftInventoryConstraint, BaseConstraint
 
 #garage
@@ -86,7 +86,7 @@ class DCPO(CPO):
         
         if safety_constraint is None:
             #by default use a quantile regression baseline and soft constraints for IMP
-            safety_baseline = QuantileValueFunction(env_spec=env_spec,
+            safety_baseline = QRValueFunction(env_spec=env_spec,
                                               Vmin=0, 
                                               Vmax=60., 
                                               N=102, 
@@ -101,7 +101,7 @@ class DCPO(CPO):
             else: 
                 raise TypeError("Safety constraint has to inherit from BaseConstraint.")
 
-        if not isinstance(value_function, QuantileValueFunction):
+        if not isinstance(value_function, QRValueFunction):
             raise TypeError('The value function must be an instance of \
                 jaisalab.value_functions.QRValueFunction in DCPO.')
 
@@ -134,7 +134,7 @@ class DCPO(CPO):
         self.safety_margin = safety_margin
         self.beta = beta
 
-        if not isinstance(self._safety_baseline, QuantileValueFunction):
+        if not isinstance(self._safety_baseline, QRValueFunction):
             raise TypeError('The safety baseline must be an instance of \
                 jaisalab.value_functions.QRValueFunction in DCPO.')
 

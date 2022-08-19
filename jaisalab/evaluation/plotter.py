@@ -182,8 +182,9 @@ class RLPlotter(BasePlotter):
         safety constraint class inputted into the algorithm. The normalisation 
         of the returns is done in terms of the """
         seed_evaluator = SeedEvaluator(seed_dir, override=False)
-        mean_normalised_cost, std_normalised_cost = seed_evaluator.get_evaluation(eval_tag='safety')
-        mean_normalised_return, std_normalised_return = seed_evaluator.get_evaluation(eval_tag='task')
+        mean_cost, std_cost = seed_evaluator.get_evaluation(eval_tag='safety')
+        mean_return, std__return = seed_evaluator.get_evaluation(eval_tag='task')
 
+        
         
     

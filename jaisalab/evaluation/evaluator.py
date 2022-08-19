@@ -17,7 +17,7 @@ from garage.experiment.deterministic import set_seed
 from jaisalab.sampler.sampler_safe import SamplerSafe
 from jaisalab.algos.policy_gradient_safe import PolicyGradientSafe
 from jaisalab.utils.agent import gather_performance
-from jaisalab.utils.eval import get_data_dict, get_snapshot_dirs, get_labels_from_dirs
+from jaisalab.utils.eval import get_data_dict, get_snapshot_dirs
 
 class Evaluator(object):
     """Class used to evaluate trained RL policies. Makes 
@@ -135,8 +135,20 @@ class Evaluator(object):
         logger.remove_all() 
         return epochs
 
-    def mean_normalised_cost(self):
-        """Evaluate the mean normalised cost of the ran evaluation 
+    def get_mean_return(self):
+        """Evaluate the mean return of the ran evaluation.
+        
+        Assumes the maximum constraint value is saved in an attribute 
+        named 'max_lin_constraint'."""
+        if not hasattr(self, 'data'):
+            raise AttributeError('Evaluation has not been ran yet. Use rollout() method to run \
+                an evaluation')
+
+        test_return = self.eval_data['AverageDiscountedReturn']
+        return np.mean(test_return) 
+
+    def get_mean_cost(self):
+        """Evaluate the mean cost of the ran evaluation 
         as per the maximum constraint value specified in the algorithm.
         
         Assumes the maximum constraint value is saved in an attribute 
@@ -145,8 +157,7 @@ class Evaluator(object):
             raise AttributeError('Evaluation has not been ran yet. Use rollout() method to run \
                 an evaluation')
         test_constraints = self.eval_data['AverageDiscountedSafetyReturn']
-        norm_avg_cost = np.mean(test_constraints) / self.max_lin_constraint
-        return norm_avg_cost
+        return np.mean(test_constraints)
     
     def num_violations(self):
         test_constraints = self.eval_data['AverageDiscountedSafetyReturn']
@@ -235,30 +246,30 @@ class SeedEvaluator():
                 be either 'task' (i.e. return) or 'safety' (i.e. cost).
         """
         #evaluate all experiments
-        seed_normalised_metric = defaultdict(dict)
+        seed_metric = defaultdict(dict)
         for seed_tag, eval_dicts in self._evaluators.items():
             for eval in eval_dicts:   
                 evaluator = eval['evaluator']
                 exp_name = eval['experiment']
                 if eval_tag == 'task':
-                    seed_normalised_metric[seed_tag][exp_name] = evaluator.mean_normalised_return()
+                    seed_metric[seed_tag][exp_name] = evaluator.get_mean_return()
                 elif eval_tag == 'safety':
-                    seed_normalised_metric[seed_tag][exp_name] = evaluator.mean_normalised_cost()
+                    seed_metric[seed_tag][exp_name] = evaluator.get_mean_cost()
                 else: 
                     raise ValueError("eval_tag must be either 'task' or 'safety'.")
 
         #transpose the data
         transposed_data = defaultdict(list)
-        for seed_tag, data in seed_normalised_metric.items():
+        for seed_tag, data in seed_metric.items():
             for exp, cost in data.items():
                 transposed_data[exp].append(cost)
 
-        mean_normalised_metric = {}
-        std_normalised_metric = {}
+        mean_metric = {}
+        std_metric = {}
         for exp, seeds_data in transposed_data.items():
             average = np.mean(seeds_data, axis=0)
             std = np.std(seeds_data, axis=0)
-            mean_normalised_metric[exp] = average
-            std_normalised_metric[exp] = std
+            mean_metric[exp] = average
+            std_metric[exp] = std
         
-        return mean_normalised_metric, std_normalised_metric
+        return mean_metric, std_metric

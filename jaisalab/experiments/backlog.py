@@ -15,7 +15,7 @@ from jaisalab.algos.dcpo import DCPO
 from jaisalab.algos.trpo_safe import SafetyTRPO
 from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
-from jaisalab.value_functions import GaussianValueFunction, QuantileValueFunction
+from jaisalab.value_functions import GaussianValueFunction, QRValueFunction
 from jaisalab.policies import GaussianPolicy
 
 #garage
@@ -213,7 +213,7 @@ def dcpo_backlog(ctxt, seed=1, n_epochs=800):
                             hidden_nonlinearity=torch.tanh,
                             output_nonlinearity=None)
 
-    value_function = QuantileValueFunction(env_spec=env.spec,
+    value_function = QRValueFunction(env_spec=env.spec,
                                      Vmin=-800, 
                                      Vmax=800.,
                                      N=102,
@@ -221,7 +221,7 @@ def dcpo_backlog(ctxt, seed=1, n_epochs=800):
                                      hidden_nonlinearity=torch.tanh,
                                      output_nonlinearity=None)
 
-    safety_baseline = QuantileValueFunction(env_spec=env.spec,
+    safety_baseline = QRValueFunction(env_spec=env.spec,
                                       Vmin=0, 
                                       Vmax=60.,
                                       N=102, 
