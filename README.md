@@ -9,7 +9,25 @@ The framework builds on the [garage](https://github.com/rlworkgroup/garage) tool
 
 The code implementations for the algorithms present in **jaisalab** are based partly or fully on the repositories of their respective papers. For **CPO**, the original TensorFlow implementation can be found in [here](https://github.com/jachiam/cpo), but this had to be translated to PyTorch to fit our framework. For **SAUTE**, the implementation was much more straightforward since it's simply a wrapper around the environment, rather than a separate algorithm that should fit our framework as a whole, so the code present in **jaisalab/envs/safe_env** and **jaisalab/envs/saute_env** was taken directly from [Huawei's repository](https://github.com/huawei-noah/HEBO) (more specifically [here](https://github.com/huawei-noah/HEBO/tree/405dc4ceb93a79f0d1f0eaa24f5458dd26de1d05/SAUTE/envs/wrappers)). 
 
+## Citing jaisalab
+
+If you use jaisalab for academic research, please cite the repository using the
+following BibTeX entry. You should update the `commit` field with the commit or
+release tag your publication uses.
+
+```latex
+@misc{jaisalab,
+ author = {Jaime Sabal Bermúdez},
+ title = {jaisalab: A garage-based framework for reproducible constrained reinforcement learning research},
+ year = {2022},
+ publisher = {GitHub},
+ journal = {GitHub repository},
+ howpublished = {\url{https://github.com/jaimesabalimperial/jaisalab}},
+ commit = {cc5bc6b4dc7074af1f47d21c6d312429b2ccb931}
+}
+```
 
 ## Notes
 
 Developed in partial fulfillment of the individual project of Jaime Sabal Bermúdez for the MSc degree in Artificial Intelligence of Imperial College London. I would like to thank Dr. Calvin Tsay for his guidance and advice throughout the project. 
+
