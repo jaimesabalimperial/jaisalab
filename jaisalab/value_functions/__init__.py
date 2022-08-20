@@ -1,3 +1,3 @@
 from .implicit import *
-from .gaussian import GaussianValueFunction
-from .quantile_regression import QRValueFunction
+from .gaussian import *
+from .quantile_regression import *

@@ -2,6 +2,7 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
 import matplotlib.animation as ani
+import seaborn as sns
 
 #jaisalab
 from jaisalab.evaluation.plotter_base import BasePlotter
@@ -175,16 +176,42 @@ class RLPlotter(BasePlotter):
         animator = ani.FuncAnimation(fig, dist_progress, interval=time_interval, save_count=save_count)
         self.savefig(flag=9, animator=animator)
     
-    def plot_evaluation(self, seed_dir):
+    def plot_evaluation(self, seed_dir, experiments, labels):
         """Plot the evaluation results in terms of the average normalised 
         returns and costs throughout the test epochs. The normalisation of 
         the costs is done in terms of the maximum allowed cost defined in the 
         safety constraint class inputted into the algorithm. The normalisation 
-        of the returns is done in terms of the """
+        of the returns is done in terms of the average cost of DCPO, since we 
+        want to compare it against the other algorithms.
+        
+        Args: 
+            seed_dir (str): Directory containing seed folders.
+            
+            experiments (dict): Dictionary containing keys as plot labels 
+                and values as the experiment folders we want to plot.
+        """
+        conv_dict = {exp:label for exp,label in zip(experiments, labels)}
         seed_evaluator = SeedEvaluator(seed_dir, override=False)
-        mean_cost, std_cost = seed_evaluator.get_evaluation(eval_tag='safety')
-        mean_return, std__return = seed_evaluator.get_evaluation(eval_tag='task')
+        data = seed_evaluator.get_evaluation()
 
-        
-        
+        exps_to_remove = np.unique([exp for exp in data.experiment if exp not in experiments])
+        plot_data = data.copy()
+
+        for exp in exps_to_remove:
+            plot_data = plot_data.drop(data[(data['experiment'] == exp)].index)
+
+
+        plot_labels = [conv_dict[exp] for exp in plot_data.experiment]
+        plot_data.experiment = plot_labels
+
+        fig, ax = plt.subplots(figsize=(10,7))
+        g = sns.boxplot(x="experiment", y="metric", hue="tag",
+                        data=plot_data, palette="deep")
+        g.axhline(1.0, color='black', linestyle='dashed')
+        ax.set_ylim(bottom=0.0)
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles=handles[0:], labels=labels[0:])
+        ax.set(xlabel=None)
+        ax.set(ylabel=None)
+        self.savefig(flag=10)
     

@@ -1,12 +1,11 @@
 #misc
-from tqdm import tqdm 
+import pandas as pd
 import numpy as np
 import os
 from os import listdir
 from dowel import logger, tabular
 import dowel
 import csv
-import shutil
 from collections import defaultdict
 
 #garage
@@ -145,7 +144,7 @@ class Evaluator(object):
                 an evaluation')
 
         test_return = self.eval_data['AverageDiscountedReturn']
-        return np.mean(test_return) 
+        return np.mean(test_return) / 400.0 #arbitrary return 
 
     def get_mean_cost(self):
         """Evaluate the mean cost of the ran evaluation 
@@ -157,7 +156,7 @@ class Evaluator(object):
             raise AttributeError('Evaluation has not been ran yet. Use rollout() method to run \
                 an evaluation')
         test_constraints = self.eval_data['AverageDiscountedSafetyReturn']
-        return np.mean(test_constraints)
+        return np.mean(test_constraints) / self.max_lin_constraint
     
     def num_violations(self):
         test_constraints = self.eval_data['AverageDiscountedSafetyReturn']
@@ -236,7 +235,7 @@ class SeedEvaluator():
                     print(f'Evaluation already exists in {evaluator.snapshot_dir}, moving on...')
                     continue
     
-    def get_evaluation(self, eval_tag):
+    def get_evaluation(self):
         """Get the normalised cost/return mean and standard deviation 
         over the different seeds for all the experiments in the 
         seed directories.
@@ -246,30 +245,35 @@ class SeedEvaluator():
                 be either 'task' (i.e. return) or 'safety' (i.e. cost).
         """
         #evaluate all experiments
-        seed_metric = defaultdict(dict)
+        eval_dict = defaultdict(list)
         for seed_tag, eval_dicts in self._evaluators.items():
             for eval in eval_dicts:   
                 evaluator = eval['evaluator']
                 exp_name = eval['experiment']
-                if eval_tag == 'task':
-                    seed_metric[seed_tag][exp_name] = evaluator.get_mean_return()
-                elif eval_tag == 'safety':
-                    seed_metric[seed_tag][exp_name] = evaluator.get_mean_cost()
-                else: 
-                    raise ValueError("eval_tag must be either 'task' or 'safety'.")
+                for tag in ['task', 'safety']:
+                    eval_dict['experiment'].append(exp_name)
+                    eval_dict['tag'].append(tag)
+                    eval_dict['seed'].append(seed_tag)
+                    if tag == 'task':
+                        eval_dict['metric'].append(evaluator.get_mean_return())
+                    else:
+                        eval_dict['metric'].append(evaluator.get_mean_cost())
 
+        eval_df = pd.DataFrame(eval_dict)
+        return eval_df
         #transpose the data
-        transposed_data = defaultdict(list)
-        for seed_tag, data in seed_metric.items():
-            for exp, cost in data.items():
-                transposed_data[exp].append(cost)
-
-        mean_metric = {}
-        std_metric = {}
-        for exp, seeds_data in transposed_data.items():
-            average = np.mean(seeds_data, axis=0)
-            std = np.std(seeds_data, axis=0)
-            mean_metric[exp] = average
-            std_metric[exp] = std
+        #transposed_data = defaultdict(list)
+        #for seed_tag, data in seed_metric.items():
+        #    for exp, metric in data.items():
+        #        transposed_data[exp].append(metric)
         
-        return mean_metric, std_metric
+        #return transposed_data
+        #mean_metric = {}
+        #std_metric = {}
+        #for exp, seeds_data in transposed_data.items():
+        #    average = np.mean(seeds_data, axis=0)
+        #    std = np.std(seeds_data, axis=0)
+        #    mean_metric[exp] = average
+        #    std_metric[exp] = std
+        
+        #return mean_metric, std_metric

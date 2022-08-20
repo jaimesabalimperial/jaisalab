@@ -13,8 +13,8 @@ from jaisalab.utils.eval import (gather_replications, get_data_dict,
 
 class BasePlotter():
     """Plotter base class."""
-    def __init__(self, get_latest=True, fdir=None, data_dir='data/local/experiment', 
-                 dtype='np', savefig=True, use_legend=True, **kwargs):
+    def __init__(self, get_latest=True, fdir=None, data_dir='experiment/data1', 
+                 dtype='np', savefig=True, **kwargs):
 
         self.data_dir = data_dir
         self.algorithm_names = ['cpo', 'trpo', 'ablation', 'dcpo']
@@ -31,7 +31,8 @@ class BasePlotter():
         self._plot_flags = {1:'returns', 2:'kl', 
                             3:'constraint_vals', 4:'entropy',
                             5:'losses', 6:'costs', 7:'dist_progress', 
-                            8:'final_dist', 9:'quantile_dist_progress'}
+                            8:'final_dist', 9:'quantile_dist_progress', 
+                            10: 'eval'}
     
     def _init_plotter(self, fdir, data_dir, get_latest):
         """Initialise plotter attributes; includes gathering data from 

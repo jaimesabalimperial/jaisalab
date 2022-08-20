@@ -10,7 +10,6 @@ from jaisalab.utils.math import calc_mean_std, log_prob
 #garage
 from garage.torch.value_functions.value_function import ValueFunction
 
-
 class QRValueFunction(ValueFunction):
     """Quantile Regression Value Function with Model. We offer 
     a slight modification in terms of the value function, where instead 
@@ -149,3 +148,7 @@ class QRValueFunction(ValueFunction):
         loss = -ll.mean()
         return loss
 
+class QuantileValueFunction(QRValueFunction):
+    """"""
+
+    
