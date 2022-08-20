@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import matplotlib.animation as ani
 import seaborn as sns
+import inspect
 
 #jaisalab
 from jaisalab.evaluation.plotter_base import BasePlotter
@@ -138,9 +139,9 @@ class RLPlotter(BasePlotter):
         plt.xlabel('Return')
         plt.ylabel('Probability')
         self.savefig(flag=8)
-
+    
     def plot_quantiles_progression(self, Vmin=-800, Vmax=800, interval=20, metric='task', 
-                                   **kwargs):
+                                   training_steps = None, **kwargs):
         """Plot progression of quantile value distribution throughout learning."""
         assert metric in ['task', 'safety'], "Metric to be plotted must either be 'task' or 'safety'."
 
@@ -161,22 +162,36 @@ class RLPlotter(BasePlotter):
         
         width = (Vmax - Vmin) / 100 #bar width
 
-        fig = plt.figure()
-        def dist_progress(i):
-            fig.clear()
-            plt.ylim(0,1)
-            p = plt.bar(quantile_vals, quantile_probs[i*interval], 
-                        color=color, edgecolor=edge_color, width=width)
-            plt.title(f'epoch: {i*interval}')
-            plt.xlabel(xlabel)
-            plt.ylabel('Probability')
+        fig_kwargs = {k:v for k,v in kwargs.items() if k in inspect.getargspec(plt.figure)[0]}
+        fig = plt.figure(**fig_kwargs)
 
-        time_interval = 5000 / len(quantile_probs)
-        save_count = len(quantile_probs) // interval
-        animator = ani.FuncAnimation(fig, dist_progress, interval=time_interval, save_count=save_count)
-        self.savefig(flag=9, animator=animator)
+        if training_steps is not None:
+            for step in training_steps:
+                fig = plt.figure(**fig_kwargs)
+                plt.ylim(0,1)
+                p = plt.bar(quantile_vals, quantile_probs[step], 
+                            color=color, edgecolor=edge_color, width=width)
+                plt.title(f'epoch: {step+1}')
+                plt.xlabel(xlabel)
+                plt.ylabel('Probability')
+                plt.savefig(f'plots/{metric}_epoch_{step+1}.png')
+        else:
+            fig = plt.figure(**fig_kwargs)
+            def dist_progress(i):
+                fig.clear()
+                plt.ylim(0,1)
+                p = plt.bar(quantile_vals, quantile_probs[i*interval], 
+                            color=color, edgecolor=edge_color, width=width)
+                plt.title(f'epoch: {i*interval}')
+                plt.xlabel(xlabel)
+                plt.ylabel('Probability')
+
+            time_interval = 5000 / len(quantile_probs)
+            save_count = len(quantile_probs) // interval
+            animator = ani.FuncAnimation(fig, dist_progress, interval=time_interval, save_count=save_count)
+            self.savefig(flag=9, animator=animator)
     
-    def plot_evaluation(self, seed_dir, experiments, labels):
+    def plot_evaluation(self, seed_dir, experiments, labels, **kwargs):
         """Plot the evaluation results in terms of the average normalised 
         returns and costs throughout the test epochs. The normalisation of 
         the costs is done in terms of the maximum allowed cost defined in the 
@@ -190,6 +205,9 @@ class RLPlotter(BasePlotter):
             experiments (dict): Dictionary containing keys as plot labels 
                 and values as the experiment folders we want to plot.
         """
+        if 'fontsize' in kwargs.keys():
+            plt.rcParams.update({'font.size': kwargs['fontsize']})
+
         conv_dict = {exp:label for exp,label in zip(experiments, labels)}
         seed_evaluator = SeedEvaluator(seed_dir, override=False)
         data = seed_evaluator.get_evaluation()

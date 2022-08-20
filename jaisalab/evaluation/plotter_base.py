@@ -152,7 +152,7 @@ class BasePlotter():
                 if animator is not None: 
                     animator.save(f'plots/{self._savefig_name}_{self._plot_flags[flag]}.gif')
                 else: 
-                    plt.savefig(f'plots/{self._savefig_name}_{self._plot_flags[flag]}')
+                    plt.savefig(f'plots/{self._savefig_name}_{self._plot_flags[flag]}.png')
 
             except FileExistsError:
                 pass

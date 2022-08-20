@@ -59,6 +59,7 @@ class Evaluator(object):
         self._discount = self.data['algo']._discount
         self._safety_discount = self.data['algo'].safety_discount
         self.max_lin_constraint = self.data['algo'].safety_constraint.safety_step
+        self.max_return = 330
 
         if isinstance(self.data['algo'], PolicyGradientSafe):
             self._is_saute = self.data['algo']._is_saute
@@ -144,7 +145,7 @@ class Evaluator(object):
                 an evaluation')
 
         test_return = self.eval_data['AverageDiscountedReturn']
-        return np.mean(test_return) / 400.0 #arbitrary return 
+        return np.mean(test_return) / self.max_return #dcpo normalisation 
 
     def get_mean_cost(self):
         """Evaluate the mean cost of the ran evaluation 
@@ -250,30 +251,14 @@ class SeedEvaluator():
             for eval in eval_dicts:   
                 evaluator = eval['evaluator']
                 exp_name = eval['experiment']
-                for tag in ['task', 'safety']:
+                for tag in ['objective', 'safety']:
                     eval_dict['experiment'].append(exp_name)
                     eval_dict['tag'].append(tag)
                     eval_dict['seed'].append(seed_tag)
-                    if tag == 'task':
+                    if tag == 'objective':
                         eval_dict['metric'].append(evaluator.get_mean_return())
                     else:
                         eval_dict['metric'].append(evaluator.get_mean_cost())
 
         eval_df = pd.DataFrame(eval_dict)
         return eval_df
-        #transpose the data
-        #transposed_data = defaultdict(list)
-        #for seed_tag, data in seed_metric.items():
-        #    for exp, metric in data.items():
-        #        transposed_data[exp].append(metric)
-        
-        #return transposed_data
-        #mean_metric = {}
-        #std_metric = {}
-        #for exp, seeds_data in transposed_data.items():
-        #    average = np.mean(seeds_data, axis=0)
-        #    std = np.std(seeds_data, axis=0)
-        #    mean_metric[exp] = average
-        #    std_metric[exp] = std
-        
-        #return mean_metric, std_metric
