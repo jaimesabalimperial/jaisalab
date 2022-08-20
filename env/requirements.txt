@@ -4,6 +4,7 @@ dm-control==1.0.3
 dm-env==1.5
 dm-tree==0.1.7
 dowel==0.0.3
+seaborn==0.11.2
 flake8-docstrings==1.6.0
 flake8-import-order==0.18.1
 flake8-polyfill==1.0.2
