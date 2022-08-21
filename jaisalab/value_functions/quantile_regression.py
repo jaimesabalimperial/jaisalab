@@ -10,7 +10,7 @@ from jaisalab.utils.math import calc_mean_std, log_prob
 #garage
 from garage.torch.value_functions.value_function import ValueFunction
 
-class QRValueFunction(ValueFunction):
+class QuantileValueFunction(ValueFunction):
     """Quantile Regression Value Function with Model. We offer 
     a slight modification in terms of the value function, where instead 
     of calculating the quantile Huber loss we use a surrogate loss in 
@@ -148,7 +148,10 @@ class QRValueFunction(ValueFunction):
         loss = -ll.mean()
         return loss
 
-class QuantileValueFunction(QRValueFunction):
+#changed naming of value function in the middle of running experiments 
+#so in order to evaluate all of the trained models I needed to 
+#have the value function with the previous naming too (ignore) :/
+class QRValueFunction(QuantileValueFunction):
     """"""
 
     
