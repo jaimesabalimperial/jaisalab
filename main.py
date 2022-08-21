@@ -12,6 +12,7 @@ from jaisalab.safety_constraints import SoftInventoryConstraint
 from jaisalab.sampler.sampler_safe import SamplerSafe
 from jaisalab.value_functions import GaussianValueFunction, QRValueFunction
 from jaisalab.policies import GaussianPolicy
+from jaisalab.evaluation import RLPlotter
 
 #garage
 from garage import Trainer, wrap_experiment
@@ -184,8 +185,8 @@ for SEED in seeds_list:
         trainer.train(n_epochs=n_epochs, batch_size=1024)
 
 
-    @wrap_experiment(log_dir=f'data{SEED}/dcpo_N=10_backlog')
-    def dcpo_beta_backlog(ctxt, seed=1, n_epochs=800, N=102):
+    @wrap_experiment(log_dir=f'data{SEED}/dcpo_N=1000_backlog')
+    def dcpo_beta_backlog(ctxt, seed=1, n_epochs=800):
         """Train CPO with InvManagementBacklogEnv environment.
 
         Args:
@@ -213,7 +214,7 @@ for SEED in seeds_list:
         value_function = QRValueFunction(env_spec=env.spec,
                                         Vmin=-800, 
                                         Vmax=800.,
-                                        N=N,
+                                        N=1000,
                                         hidden_sizes=(64, 64),
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
@@ -221,7 +222,7 @@ for SEED in seeds_list:
         safety_baseline = QRValueFunction(env_spec=env.spec,
                                         Vmin=0, 
                                         Vmax=60.,
-                                        N=N, 
+                                        N=1000, 
                                         hidden_sizes=(64, 64),                                        
                                         hidden_nonlinearity=torch.tanh,
                                         output_nonlinearity=None)
@@ -312,7 +313,7 @@ for SEED in seeds_list:
         #trpo_backlog(seed=SEED)
         #cpo_backlog(seed=SEED)
         #saute_trpo_backlog(seed=SEED)
-        dcpo_beta_backlog(seed=SEED, N=10)
+        dcpo_beta_backlog(seed=SEED)
 
     if __name__ == '__main__':
         train_seed()
@@ -320,3 +321,5 @@ for SEED in seeds_list:
         #cpo_backlog(seed=SEED)
         #saute_trpo_backlog(seed=SEED)
         #dcpo_backlog(seed=SEED)
+        #plotter = RLPlotter(fdir='dcpo_beta100.0_backlog', data_dir='experiments/data2')
+        #plotter.plot_quantiles_progression(Vmin=-800, Vmax=800, metric='task', fontsize=8)
