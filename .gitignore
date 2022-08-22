@@ -24,6 +24,7 @@ jaisalab/__pycache__/
 **/bad_seeds
 **/N_experiments
 **/.history
+**/.vscode
 
 # C extensions
 *.so
