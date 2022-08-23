@@ -43,6 +43,8 @@ class RLPlotter(BasePlotter):
         std_column = 'Evaluation/StdReturn'
         x_array, y_array, std_array = self.get_data_arrays(y_column, std_column)
 
+        final_returns = np.array(y_array)[:,-1]
+
         if return_lim is not None: 
             kwargs['hline_label'] = 'max return'
 
@@ -51,6 +53,8 @@ class RLPlotter(BasePlotter):
                   hline=return_lim, **kwargs)
         self.savefig(flag=1)
 
+        return final_returns
+
     def plot_costs(self, title=None, use_legend=True, cost_lim=None, **kwargs):
         """Plot progression of costs throughout epochs."""
         y_column = 'Evaluation/AverageSafetyReturn'
@@ -58,6 +62,8 @@ class RLPlotter(BasePlotter):
         ylabel = 'Average Costs'
 
         x_array, y_array, std_array = self.get_data_arrays(y_column, std_column)
+
+        final_costs = np.array(y_array)[:,-1]
         
         if cost_lim is not None: 
             kwargs['hline_label'] = 'max cost'
@@ -66,6 +72,8 @@ class RLPlotter(BasePlotter):
                   title=title, use_legend=use_legend, 
                   hline=cost_lim, **kwargs)
         self.savefig(flag=6)
+
+        return final_costs
 
     def plot_constraint_vals(self, title=None, use_legend=True, 
                              cost_lim=None, **kwargs):

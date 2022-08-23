@@ -127,7 +127,7 @@ class DCPO(CPO):
                          entropy_method=entropy_method,
                          grad_norm=grad_norm)
         
-        assert safety_margin > 0 and safety_margin < 1, 'Safety margin must be between 0 and 1.'
+        assert safety_margin >= 0 and safety_margin <= 1, 'Safety margin must be between 0 and 1.'
         assert beta > 0, 'Beta must be positive.'
         
         self.dist_penalty = dist_penalty

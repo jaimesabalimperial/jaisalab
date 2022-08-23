@@ -236,10 +236,25 @@ class SeedEvaluator():
                     print(f'Evaluation already exists in {evaluator.snapshot_dir}, moving on...')
                     continue
     
+    def get_costs(self, experiment):
+        """Returns the mean cost and its standard deviation across 
+        the seeds in the specified seeds directory."""
+        eval_dict = self.get_evaluation()
+        experiment_results = eval_dict[eval_dict['experiment'] == experiment]
+        experiment_costs =  experiment_results[experiment_results['tag'] == 'safety']
+        return np.mean(experiment_costs['metric']), np.std(experiment_costs['metric'])
+
+    def get_returns(self, experiment):
+        """Returns the mean cost and its standard deviation across 
+        the seeds in the specified seeds directory."""
+        eval_dict = self.get_evaluation()
+        experiment_results = eval_dict[eval_dict['experiment'] == experiment]
+        experiment_returns =  experiment_results[experiment_results['tag'] == 'objective']
+        return np.mean(experiment_returns['metric']), np.std(experiment_returns['metric'])
+    
     def get_evaluation(self):
-        """Get the normalised cost/return mean and standard deviation 
-        over the different seeds for all the experiments in the 
-        seed directories.
+        """Returns a pd.DataFrame object with all of the evaluation results 
+        for the experiments in the specified seeds directory. 
         
         Args: 
             eval_tag (str): Specified which metric to retrieve evaluation for. Must 
