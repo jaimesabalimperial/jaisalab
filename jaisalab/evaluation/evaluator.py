@@ -203,6 +203,8 @@ class SeedEvaluator():
         self.seed_dir = seed_dir
         self.seed_data_dirs = [seed_dir + '/' + dir for dir in listdir(seed_dir)]
         self.experiment_tags =  ['cpo', 'trpo', 'ablation', 'dcpo']
+        self.max_lin_constraint = 15 
+        self.max_return = 330
 
         self._evaluators = defaultdict(list)
         for seed_dir in self.seed_data_dirs: 
@@ -241,16 +243,16 @@ class SeedEvaluator():
         the seeds in the specified seeds directory."""
         eval_dict = self.get_evaluation()
         experiment_results = eval_dict[eval_dict['experiment'] == experiment]
-        experiment_costs =  experiment_results[experiment_results['tag'] == 'safety']
-        return np.mean(experiment_costs['metric']), np.std(experiment_costs['metric'])
+        experiment_costs =  experiment_results[experiment_results['tag'] == 'safety']['metric'] * self.max_lin_constraint 
+        return experiment_costs
 
     def get_returns(self, experiment):
         """Returns the mean cost and its standard deviation across 
         the seeds in the specified seeds directory."""
         eval_dict = self.get_evaluation()
         experiment_results = eval_dict[eval_dict['experiment'] == experiment]
-        experiment_returns =  experiment_results[experiment_results['tag'] == 'objective']
-        return np.mean(experiment_returns['metric']), np.std(experiment_returns['metric'])
+        experiment_returns =  experiment_results[experiment_results['tag'] == 'objective']['metric'] * self.max_return
+        return experiment_returns
     
     def get_evaluation(self):
         """Returns a pd.DataFrame object with all of the evaluation results 

@@ -226,7 +226,6 @@ class RLPlotter(BasePlotter):
         for exp in exps_to_remove:
             plot_data = plot_data.drop(data[(data['experiment'] == exp)].index)
 
-
         plot_labels = [conv_dict[exp] for exp in plot_data.experiment]
         plot_data.experiment = plot_labels
 
