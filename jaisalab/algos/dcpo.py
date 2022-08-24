@@ -79,8 +79,8 @@ class DCPO(CPO):
                  stop_entropy_gradient=False,
                  entropy_method='no_entropy', 
                  grad_norm=False, 
-                 safety_margin=0.10, 
-                 beta=2, 
+                 safety_margin=0.15, 
+                 beta=100., 
                  dist_penalty=False): #ablation 
                 
         

@@ -5,6 +5,10 @@ Namely, the algorithms implemented are [Constrained Policy Optimization (CPO)](h
 
 The framework builds on the [garage](https://github.com/rlworkgroup/garage) toolkit to add functionality to safe RL settings (i.e. where there is a cost associated with each state-action pair on top of the reward) and thus provides an auxiliary set of modular tools for implementing constrained RL algorithms, analogously to how **garage** provides these for regular RL settings. 
 
+## Instructions for Experiment Reproduction
+
+The final results for DCPO, Saute TRPO, Vanilla TRPO, and CPO showed in the final report are equivalent to the experiments in [jaisalab.experiments.backlog](https://github.com/jaimesabalimperial/jaisalab/blob/master/jaisalab/experiments/backlog.py), ran across seeds 1-10. The evaluation of the trained algorithms is done through the SeedEvaluator object for 30 epochs and the plots are made using the methods of the RLPlotter object. 
+
 ## References
 
 The code implementations for the algorithms present in **jaisalab** are based partly or fully on the repositories of their respective papers. For **CPO**, the original TensorFlow implementation can be found in [here](https://github.com/jachiam/cpo), but this had to be translated to PyTorch to fit our framework. For **SAUTE**, the implementation was much more straightforward since it's simply a wrapper around the environment, rather than a separate algorithm that should fit our framework as a whole, so the code present in **jaisalab/envs/safe_env** and **jaisalab/envs/saute_env** was taken directly from [Huawei's repository](https://github.com/huawei-noah/HEBO) (more specifically [here](https://github.com/huawei-noah/HEBO/tree/405dc4ceb93a79f0d1f0eaa24f5458dd26de1d05/SAUTE/envs/wrappers)). 
