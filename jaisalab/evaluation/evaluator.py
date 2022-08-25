@@ -59,7 +59,7 @@ class Evaluator(object):
         self._discount = self.data['algo']._discount
         self._safety_discount = self.data['algo'].safety_discount
         self.max_lin_constraint = self.data['algo'].safety_constraint.safety_step
-        self.max_return = 330
+        self.max_return = 329.5 #from average return of DCPO across seeds 1-10
 
         if isinstance(self.data['algo'], PolicyGradientSafe):
             self._is_saute = self.data['algo']._is_saute
@@ -212,7 +212,7 @@ class SeedEvaluator():
         self.seed_data_dirs = [seed_dir + '/' + dir for dir in listdir(seed_dir)]
         self.experiment_tags =  ['cpo', 'trpo', 'ablation', 'dcpo']
         self.max_lin_constraint = 15 
-        self.max_return = 330
+        self.max_return = 329.5 #from average return of DCPO across seeds 1-10
 
         self._evaluators = defaultdict(list)
         for seed_dir in self.seed_data_dirs: 
