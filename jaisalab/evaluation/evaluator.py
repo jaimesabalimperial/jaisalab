@@ -81,6 +81,14 @@ class Evaluator(object):
             data_dict[metric] = np.array(values)
         
         return data_dict
+    
+    @property
+    def returns(self):
+        return self.eval_data['AverageDiscountedReturn']
+    
+    @property
+    def costs(self):
+        return self.eval_data['AverageDiscountedSafetyReturn']
 
     def log_diagnostics(self, performance):
         """Log evaluation data to csv file."""
@@ -219,6 +227,45 @@ class SeedEvaluator():
                 eval_dict['rollout_necessary'] = not eval_exists
                 eval_dict['experiment'] = exp_fdir
                 self._evaluators[seed_tag].append(eval_dict)
+    @property
+    def raw_data(self):
+        """Return raw returns and costs seed data."""
+        #evaluate all experiments
+        eval_dict = defaultdict(list)
+        for seed_tag, eval_dicts in self._evaluators.items():
+            for eval in eval_dicts:   
+                evaluator = eval['evaluator']
+                exp_name = eval['experiment']
+                for tag in ['objective', 'safety']:
+                    if tag == 'objective':
+                        for ret in evaluator.returns:
+                            eval_dict['experiment'].append(exp_name)
+                            eval_dict['tag'].append(tag)
+                            eval_dict['seed'].append(seed_tag)
+                            eval_dict['metric'].append(ret / 330)
+                    else:
+                        for cost in evaluator.costs:
+                            eval_dict['experiment'].append(exp_name)
+                            eval_dict['tag'].append(tag)
+                            eval_dict['seed'].append(seed_tag)
+                            eval_dict['metric'].append(cost / 15)
+
+        eval_df = pd.DataFrame(eval_dict)
+        return eval_df
+    
+    def percentage_violations(self, experiment, max_cost=15.0):
+        """Calculate the percentage of total evaluation points 
+        that violate the safety constraint."""
+        raw_data = self.raw_data 
+        exps_to_remove = np.unique([exp for exp in raw_data.experiment if exp != experiment])
+        data_copy = raw_data.copy()
+        for exp in exps_to_remove:
+            data_copy = data_copy.drop(data_copy[(data_copy['experiment'] == exp)].index)
+
+        costs_data = data_copy[data_copy['tag'] == 'safety']
+        violating_points = costs_data[costs_data['metric'] > max_cost]
+        
+        return len(violating_points['metric']) / len(costs_data['metric'])
 
     def rollout(self, n_epochs):
         """Rollout test data for all the trained policies in 

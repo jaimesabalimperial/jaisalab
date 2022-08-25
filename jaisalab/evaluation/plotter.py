@@ -51,6 +51,7 @@ class RLPlotter(BasePlotter):
                   hline=return_lim, **kwargs)
         self.savefig(flag=1)
 
+
     def plot_costs(self, title=None, use_legend=True, cost_lim=None, **kwargs):
         """Plot progression of costs throughout epochs."""
         y_column = 'Evaluation/AverageSafetyReturn'
