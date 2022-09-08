@@ -38,6 +38,7 @@ following BibTeX entry. You should update the `commit` field with the commit or
 release tag your publication uses.
 
 .. code-block:: console
+    
     @misc{jaisalab,
     author = {Jaime Sabal Bermúdez},
     title = {jaisalab: A garage-based framework for reproducible constrained reinforcement learning research},
