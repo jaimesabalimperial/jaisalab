@@ -37,15 +37,15 @@ If you use jaisalab for academic research, please cite the repository using the
 following BibTeX entry. You should update the `commit` field with the commit or
 release tag your publication uses.
 
-.. math::
-@misc{jaisalab,
- author = {Jaime Sabal Bermúdez},
- title = {jaisalab: A garage-based framework for reproducible constrained reinforcement learning research},
- year = {2022},
- publisher = {GitHub},
- journal = {GitHub repository},
- howpublished = {\url{https://github.com/jaimesabalimperial/jaisalab}},
- commit = {cc5bc6b4dc7074af1f47d21c6d312429b2ccb931}
+.. code-block:: console
+    @misc{jaisalab,
+    author = {Jaime Sabal Bermúdez},
+    title = {jaisalab: A garage-based framework for reproducible constrained reinforcement learning research},
+    year = {2022},
+    publisher = {GitHub},
+    journal = {GitHub repository},
+    howpublished = {\url{https://github.com/jaimesabalimperial/jaisalab}},
+    commit = {cc5bc6b4dc7074af1f47d21c6d312429b2ccb931}
 
 
 Notes
