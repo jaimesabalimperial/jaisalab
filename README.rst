@@ -2,9 +2,9 @@ jaisalab: A Toolkit for Safe RL
 -------------------------------
 
 jaisalab is a framework for developing and evaluating reinforcement learning algorithms that take into account constraints that should be satisfied in OpenAI gym environments, that also provides PyTorch implementations for a few state-of-the-art algorithms in Constrained RL. 
-Namely, the algorithms implemented are [Constrained Policy Optimization (CPO)](https://github.com/jaimesabalimperial/jaisalab/blob/master/jaisalab/algos/cpo.py), the [Safety Augmented RL (SAUTE)](https://github.com/jaimesabalimperial/jaisalab/blob/master/jaisalab/envs/saute_env.py) wrapper that incorporates safety to any RL algorithm in a plug-n-play manner, and **Distributional Constrained Policy Optimization**, a modification to CPO that exploits uncertainty in the cost value function to better satisfy constraints. 
+Namely, the algorithms implemented are `Constrained Policy Optimization (CPO) <https://github.com/jaimesabalimperial/jaisalab/blob/master/jaisalab/algos/cpo.py>`_, the `Safety Augmented RL (SAUTE) <https://github.com/jaimesabalimperial/jaisalab/blob/master/jaisalab/envs/saute_env.py>`_ wrapper that incorporates safety to any RL algorithm in a plug-n-play manner, and **Distributional Constrained Policy Optimization**, a modification to CPO that exploits uncertainty in the cost value function to better satisfy constraints. 
 
-The framework builds on the [garage](https://github.com/rlworkgroup/garage) toolkit to add functionality to safe RL settings (i.e. where there is a cost associated with each state-action pair on top of the reward) and thus provides an auxiliary set of modular tools for implementing constrained RL algorithms, analogously to how **garage** provides these for regular RL settings. 
+The framework builds on the `garage <https://github.com/rlworkgroup/garage>`_ toolkit to add functionality to safe RL settings (i.e. where there is a cost associated with each state-action pair on top of the reward) and thus provides an auxiliary set of modular tools for implementing constrained RL algorithms, analogously to how **garage** provides these for regular RL settings. 
 
 Running Unit and Integration Tests
 ----------------------------------
@@ -23,12 +23,12 @@ follows:
 Instructions for Experiment Reproduction
 ----------------------------------------
 
-The final results for DCPO, Saute TRPO, Vanilla TRPO, and CPO showed in the final report are equivalent to the experiments in [jaisalab.experiments.backlog](https://github.com/jaimesabalimperial/jaisalab/blob/master/jaisalab/experiments/backlog.py), ran across seeds 1-10. The evaluation of the trained algorithms is done through the SeedEvaluator object for 30 epochs and the plots are made using the methods of the RLPlotter object. 
+The final results for DCPO, Saute TRPO, Vanilla TRPO, and CPO showed in the final report are equivalent to the experiments in `jaisalab.experiments.backlog <https://github.com/jaimesabalimperial/jaisalab/blob/master/jaisalab/experiments/backlog.py>`_, ran across seeds 1-10. The evaluation of the trained algorithms is done through the SeedEvaluator object for 30 epochs and the plots are made using the methods of the RLPlotter object. 
 
 References
 ----------
 
-The code implementations for the algorithms present in **jaisalab** are based partly or fully on the repositories of their respective papers. For **CPO**, the original TensorFlow implementation can be found in [here](https://github.com/jachiam/cpo), but this had to be translated to PyTorch to fit our framework. For **SAUTE**, the implementation was much more straightforward since it's simply a wrapper around the environment, rather than a separate algorithm that should fit our framework as a whole, so the code present in **jaisalab/envs/safe_env** and **jaisalab/envs/saute_env** was taken directly from [Huawei's repository](https://github.com/huawei-noah/HEBO) (more specifically [here](https://github.com/huawei-noah/HEBO/tree/405dc4ceb93a79f0d1f0eaa24f5458dd26de1d05/SAUTE/envs/wrappers)). 
+The code implementations for the algorithms present in **jaisalab** are based partly or fully on the repositories of their respective papers. For **CPO**, the original TensorFlow implementation can be found in `here <https://github.com/jachiam/cpo>`_, but this had to be translated to PyTorch to fit our framework. For **SAUTE**, the implementation was much more straightforward since it's simply a wrapper around the environment, rather than a separate algorithm that should fit our framework as a whole, so the code present in **jaisalab/envs/safe_env** and **jaisalab/envs/saute_env** was taken directly from `Huawei's repository <https://github.com/huawei-noah/HEBO>`_ (more specifically `here <https://github.com/huawei-noah/HEBO/tree/405dc4ceb93a79f0d1f0eaa24f5458dd26de1d05/SAUTE/envs/wrappers>`_). 
 
 Citing jaisalab
 ---------------
@@ -38,7 +38,7 @@ following BibTeX entry. You should update the `commit` field with the commit or
 release tag your publication uses.
 
 .. code-block:: console
-    
+
     @misc{jaisalab,
     author = {Jaime Sabal Bermúdez},
     title = {jaisalab: A garage-based framework for reproducible constrained reinforcement learning research},
