@@ -1,4 +1,4 @@
-"""Constrained Policy Optimization using PyTorch with the garage framework."""
+"""Distributional Constrained Policy Optimization"""
 import torch
 import numpy as np
 #jaisalab
@@ -50,10 +50,10 @@ class DCPO(CPO):
             the mean entropy to the surrogate objective. See
             https://arxiv.org/abs/1805.00909 for more details.
         grad_norm (bool): Wether to normalise the objective loss gradients. 
-        tolerance (float): Probability tolerance for the safety baselines' estimate 
+        safety_margin (float): Probability tolerance for the safety baselines' estimate 
             of the probability of the average costs being greater than the maximum 
-            allowed cost in CPO (max_lin_constraint); Default=0.05.
-        beta (float): Cost reshaping coefficient; Default=0. 
+            allowed cost in CPO (max_lin_constraint); Default=0.15.
+        beta (float): Cost reshaping coefficient; Default=100. 
         dist_penalty (bool): Boolean specifying if cost reshaping should be ablated. 
     """
 
@@ -81,7 +81,7 @@ class DCPO(CPO):
                  grad_norm=False, 
                  safety_margin=0.15, 
                  beta=100., 
-                 dist_penalty=False): #ablation 
+                 dist_penalty=True): #ablation 
                 
         
         if safety_constraint is None:
@@ -142,25 +142,12 @@ class DCPO(CPO):
         self.max_constraint_idx = (torch.abs(z_dist - self.max_lin_constraint)).argmin()
         
     def reshape_constraint(self):
-        """Compute new constraint value $\tilde{J}_{C}$ and its target $d$ (i.e. maximum allowed 
-        $\tilde{J}_{C}$)such
-        that: 
-
-        \begin{equation}
-
-            \tilde{J}_{C} = J{C} * (1 + \rho) + \beta * (J_{C} - d)
-
-            \tilde{d} = d * (\tilde{J}_{C} / J{C})
-        
-        \end{equation}
-
-        where $\rho$ is the surplus probability that J_{C} > d as per the estimated quantile 
-        distribution of costs (using QRValueFunction) and $\beta$ is a weight coefficient assigned 
-        to the distance between J_{C} and its target d. 
-        
-        To ensure that dual problem constraint inequality holds (i.e. $\tilde{J}_{C} - \tilde{d} > 0 
-        \iff J_{C} - d > 0$) we must condition the reshaping of $J_{C}$ and $d$ such that it is 
-        only done if  J_{C} / d > \beta / (1 + \rho + \beta) (assuming that \rho > 0, \beta > 0). 
+        """Compute new constraint value and its target by reshaping it 
+        by using the cost distribution to update the safety constraints lagrange 
+        multipler in solving the dual problem of CPO. Beta has the effect of making
+        the policy update steps when the constraint is being violated more aggresive
+        towards directions that minimise the costs (by managing the magnitude of the 
+        lagrange multiplier for the safety constraint). 
         """
         #use initial state prediction of quantiles to retrieve baseline of constraint value
         with torch.no_grad():
@@ -176,21 +163,6 @@ class DCPO(CPO):
         J = self.constraint_value * (1 + k) #new constraint
         d = self.max_lin_constraint * (1 + k) #new target
 
-        #compute surplus probability of obtaining J_{C} > d as per safety baseline
-        #surplus_prob = sum(mean_quantile_probs[self.max_constraint_idx:]) - self.tolerance
-        #surplus_prob = max(surplus_prob, 0)
-
-        #if (self.constraint_value / self.max_lin_constraint) > (self.beta / (1 + surplus_prob + self.beta)): 
-            #calculate difference between constraint value and limit
-        #    delta =  self.constraint_value - self.max_lin_constraint        
-        #    constraint = self.constraint_value * (1 + surplus_prob) + self.beta * delta
-            
-            #update moving target for constraint limit
-        #    self.c = self.max_lin_constraint * (constraint / self.constraint_value)
-        #else: #solve dual problem without reshaping
-        #    self.c = self.max_lin_constraint
-        #    return self.constraint_value
-
         return J, d
 
     def _train_policy(self, obs, actions, rewards, advantages, 
@@ -205,6 +177,10 @@ class DCPO(CPO):
             rewards (torch.Tensor): Acquired rewards
                 with shape :math:`(N, )`.
             advantages (torch.Tensor): Advantage value at each step
+                with shape :math:`(N, )`.
+            safety_rewards (torch.Tensor): Acquired safety rewards (i.e. costs)
+                with shape :math:`(N, )`.
+            safety_advantages (torch.Tensor): Safety advantage value at each step
                 with shape :math:`(N, )`.
 
         Returns:
